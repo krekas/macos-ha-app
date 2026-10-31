@@ -37,10 +37,7 @@ struct MenuView: View {
 
     private var footer: some View {
         HStack {
-            Button("Open HAApp") {
-                openWindow(id: MainWindow.id)
-                NSApp.activate()
-            }
+            Button("Open HAApp") { AppDelegate.showMainWindow(openWindow) }
             .keyboardShortcut("0")
             SettingsLink { Text("Settings…") }
                 .keyboardShortcut(",")

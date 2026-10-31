@@ -1,6 +1,7 @@
 import AppKit
 import SwiftData
 import HAAppKit
+import ServiceManagement
 
 /// Self-test for agents: runs the app's real functions on a test store,
 /// prints PASS or FAIL per check, and quits with exit code 0 or 1.
@@ -94,6 +95,14 @@ enum SelfTest {
             store.grouping = .device
             store.collapseAll()
             check("Collapse All closes every section", !byDevice.contains { store.isExpanded($0.id) })
+
+            // S-030: Open at login shows the real registration, and tests never change it.
+            let login = LoginItem.shared
+            let before = SMAppService.mainApp.status
+            check("Open at login shows the real registration",
+                  login.isOn == (before == .enabled || before == .requiresApproval))
+            login.set(!login.isOn)
+            check("the self-test leaves login items alone", SMAppService.mainApp.status == before)
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)

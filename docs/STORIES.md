@@ -227,10 +227,14 @@ Status: todo
 ## M4 System
 
 ### S-030 Launch at login
-As the user, I turn on "Open at login" in Settings → General.
+As the user, I turn on "Open at login" in Settings → General, under the menu bar icon, and HAApp starts quietly in the menu bar when I log in.
 Acceptance:
 - [self] The toggle uses `SMAppService.mainApp` and reflects the real registration status.
-Status: todo
+- [snap] The toggle sits under "Show in menu bar" and is off and disabled while the menu bar icon is off; turning the icon off also removes the login item.
+- [unit] Opened at login with the menu bar icon on, HAApp starts with no window and no Dock icon (`Presence.atLaunch`).
+- [unit] Opening the window brings the Dock icon back; closing every window with the menu bar icon on hides it again (`Presence.current`).
+- [manual] Log out and back in: only the menu bar icon appears. `APP_LOGIN=1` simulates this.
+Status: done
 
 ### S-031 Open the menu with a global shortcut
 As the user, I press a shortcut I chose (no default) to open the menu from anywhere.

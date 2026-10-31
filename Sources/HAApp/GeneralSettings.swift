@@ -1,5 +1,6 @@
-import SwiftUI
 import HAAppKit
+import ServiceManagement
+import SwiftUI
 
 /// App settings kept in UserDefaults. Observable, so the App's scenes follow them.
 /// (`@AppStorage` in the App struct sends `MenuBarExtra(isInserted:)` into an update loop.)
@@ -20,6 +21,7 @@ final class Preferences {
 struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
     @Bindable private var preferences = Preferences.shared
+    private let loginItem = LoginItem.shared
 
     var body: some View {
         @Bindable var connection = model.connection
@@ -60,11 +62,46 @@ struct GeneralSettings: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
-        Section("Menu Bar") {
+        Section {
             Toggle(isOn: $preferences.showInMenuBar) {
                 Text("Show in menu bar")
                 Text("Open your items from the menu bar. HAApp keeps running there after you close its window.")
             }
+            Toggle(isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) })) {
+                Text("Open at login")
+                Text("HAApp starts in the menu bar when you log in, without a window or a Dock icon.")
+            }
+            .disabled(!preferences.showInMenuBar)
+        } header: {
+            Text("Menu Bar")
+        } footer: {
+            loginFooter
+        }
+        .onChange(of: preferences.showInMenuBar) { _, shown in
+            // Open at login means "start in the menu bar": it goes with the icon.
+            if !shown && loginItem.isOn { loginItem.set(false) }
+        }
+        .onAppear { loginItem.refresh() }
+    }
+
+    @ViewBuilder
+    private var loginFooter: some View {
+        if let error = loginItem.error {
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if loginItem.needsApproval {
+            HStack(spacing: Space.sm) {
+                Text("Allow HAApp in System Settings to open it at login.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
+                    .buttonStyle(.link)
+                    .font(.caption)
+                    .tint(Palette.accentText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
