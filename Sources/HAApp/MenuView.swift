@@ -1,25 +1,27 @@
+import HAAppKit
 import SwiftData
 import SwiftUI
 
-/// What opens when you click the HAApp icon in the menu bar.
-/// Live states, turning things on and off, and sensor values come with S-002 to S-005.
+/// What opens when you click the HAApp icon in the menu bar: the items
+/// shown in the menu bar (Settings > Entities), by group.
 struct MenuView: View {
     @Environment(\.openWindow) private var openWindow
     @Query(sort: \MenuGroup.order) private var groups: [MenuGroup]
 
     var body: some View {
         VStack(spacing: 0) {
-            if groups.allSatisfy(\.items.isEmpty) {
+            let shown = groups.filter { $0.items.contains { $0.showInMenuBar } }
+            if shown.isEmpty {
                 ContentUnavailableView {
                     Label("No Items Yet", systemImage: "house")
                 } description: {
-                    Text("Add lights, switches, and sensors from Home Assistant.")
+                    Text("Choose what to show in Settings > Entities.")
                 }
                 .frame(maxWidth: .infinity, minHeight: Layout.menuEmptyHeight)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Space.sm) {
-                        ForEach(groups.filter { !$0.items.isEmpty }) { group in
+                        ForEach(shown) { group in
                             GroupSection(group: group)
                         }
                     }
@@ -63,32 +65,91 @@ private struct GroupSection: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Space.sm)
-            ForEach(group.sortedItems) { item in
+            ForEach(group.sortedItems.filter(\.showInMenuBar)) { item in
                 ItemRow(item: item)
             }
         }
     }
 }
 
+/// One item: its symbol, name, and live value. A light, switch, remote, or
+/// other on/off entity is a button: a click turns it on or off.
 struct ItemRow: View {
+    @Environment(AppModel.self) private var model
     let item: MenuItem
 
     var body: some View {
+        let name = model.name(of: item)
+        let state = model.live.states[item.entityID]
+        let isOn = state?.isOn == true && item.entity?.isToggleable == true
+        if item.entity?.isToggleable == true {
+            Button {
+                withAnimation(Motion.quick) { model.live.toggle(item.entityID) }
+            } label: {
+                content(name: name, state: state, isOn: isOn)
+            }
+            .buttonStyle(.plain)
+            .disabled(!model.live.isLive || state == nil || state?.isUnavailable == true)
+            .help(help(name: name, state: state))
+            .accessibilityLabel(name)
+            .accessibilityValue(value(state))
+            .accessibilityHint(isOn ? "Turn Off" : "Turn On")
+        } else {
+            content(name: name, state: state, isOn: false)
+                .help(help(name: name, state: state))
+                .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func content(name: String, state: EntityState?, isOn: Bool) -> some View {
         HStack(spacing: Space.sm) {
-            Image(systemName: item.symbol)
+            Image(systemName: symbol(state))
+                .symbolVariant(isOn ? .fill : .none)
+                .foregroundStyle(isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                 .frame(width: Layout.symbolColumn)
-                .foregroundStyle(.secondary)
-            Text(item.displayName)
+            Text(name)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Spacer()
-            Text("—")
-                .foregroundStyle(.secondary)
+            Spacer(minLength: Space.sm)
+            if model.live.errors[item.entityID] != nil {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+            }
+            Text(value(state))
+                .foregroundStyle(isOn ? AnyShapeStyle(Palette.accentText) : AnyShapeStyle(.secondary))
                 .monospacedDigit()
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .animation(Motion.numberRoll, value: state?.displayValue)
         }
         .padding(.horizontal, Space.sm)
         .padding(.vertical, Space.xs)
-        .help(item.entityID)
-        .accessibilityElement(children: .combine)
+        .contentShape(Rectangle())
+        .opacity(isMissing(state) ? 0.5 : 1)
+    }
+
+    /// Live and connected, but Home Assistant has no such entity.
+    private func isMissing(_ state: EntityState?) -> Bool {
+        state == nil && model.live.isLive
+    }
+
+    private func symbol(_ state: EntityState?) -> String {
+        isMissing(state) && item.customSymbol == nil ? "questionmark.circle" : item.symbol
+    }
+
+    private func value(_ state: EntityState?) -> String {
+        if let state { return state.displayValue }
+        return isMissing(state) ? "Not found" : "—"
+    }
+
+    private func help(name: String, state: EntityState?) -> String {
+        if let error = model.live.errors[item.entityID] {
+            return "Couldn't turn \(state?.isOn == true ? "off" : "on") \(name): \(error)"
+        }
+        if isMissing(state) { return "\(item.entityID) isn't in Home Assistant anymore." }
+        if state?.isUnavailable == true { return "Home Assistant reports \(name) as unavailable." }
+        guard model.live.isLive else { return "\(item.entityID): not connected to Home Assistant" }
+        if item.entity?.isToggleable == true { return state?.isOn == true ? "Turn off \(name)" : "Turn on \(name)" }
+        return item.entityID
     }
 }

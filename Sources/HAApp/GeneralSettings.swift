@@ -43,7 +43,7 @@ struct GeneralSettings: View {
             LabeledContent {
                 HStack(spacing: Space.sm) {
                     if connection.isConnected {
-                        Button("Disconnect") { connection.disconnect() }
+                        Button("Disconnect") { model.disconnect() }
                     }
                     Button("Connect", action: connect)
                         .buttonStyle(.borderedProminent)

@@ -7,7 +7,13 @@ import HAAppKit
 /// database, so it is there at launch without asking the server.
 @Observable
 final class EntityStore {
-    private(set) var catalog: EntityCatalog?
+    private(set) var catalog: EntityCatalog? {
+        didSet { byID = Dictionary((catalog?.entities ?? []).map { ($0.entityID, $0) }, uniquingKeysWith: { first, _ in first }) }
+    }
+    private var byID: [String: KnownEntity] = [:]
+
+    /// The scanned entity with this id.
+    func entity(_ entityID: String) -> KnownEntity? { byID[entityID] }
     private(set) var isScanning = false
     /// Why the last scan failed, until the next one succeeds.
     private(set) var scanError: String?
@@ -37,7 +43,10 @@ final class EntityStore {
 
     init(url: URL) {
         self.url = url
-        catalog = EntityCatalog.load(from: url)
+        let loaded = EntityCatalog.load(from: url)
+        catalog = loaded
+        // didSet doesn't run in init.
+        byID = Dictionary((loaded?.entities ?? []).map { ($0.entityID, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// True when there's no list yet, or it came from another server.

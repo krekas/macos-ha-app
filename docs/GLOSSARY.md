@@ -18,3 +18,5 @@ One name per idea. Buttons, menus, tooltips, errors, and VoiceOver labels use th
 | Turn On / Turn Off | Change a light or switch. The item itself acts as the toggle. | enable, activate, toggle (in UI text) |
 | Not found | An item whose entity no longer exists in Home Assistant | missing, deleted, orphan |
 | Unavailable | Home Assistant reports the entity's state as `unavailable` or `unknown`; shown as "—" | offline, error |
+| Menu Bar / Window | The two places an item can show; the toggles next to each entity in Settings > Entities | pin, star, favorite |
+| Rename… | Give an item its own name. Blank uses the name from Home Assistant. | alias, label, nickname |

@@ -1,11 +1,16 @@
+import SwiftData
 import SwiftUI
 import HAAppKit
 
 /// Settings > Entities: every entity from the last scan, grouped by device,
 /// area, or type, with a search field in the toolbar and a Rescan button.
+/// Each entity's toggles show it in the menu bar, the window, or both.
 struct EntitiesSettings: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
+    @Query private var items: [MenuItem]
+    /// The naming sheet, open while set.
+    @State private var draft: ItemDraft?
 
     var body: some View {
         let store = model.entities
@@ -17,11 +22,13 @@ struct EntitiesSettings: View {
             }
         }
         .searchable(text: $query, placement: .toolbar, prompt: "Search entities")
+        .sheet(item: $draft) { ItemSheet(draft: $0) }
     }
 
     private func list(_ catalog: EntityCatalog) -> some View {
         @Bindable var store = model.entities
         let sections = catalog.sections(by: store.grouping, matching: query)
+        let itemByID = Dictionary(items.map { ($0.entityID, $0) }, uniquingKeysWith: { first, _ in first })
         return Form {
             Section {
                 LabeledContent {
@@ -41,6 +48,10 @@ struct EntitiesSettings: View {
                             .disabled(searching)
                     }
                 }
+            } footer: {
+                Text("Turn on Menu Bar or Window to show an entity there. Right-click an entity to rename it.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             if sections.isEmpty {
                 Section {
@@ -52,7 +63,11 @@ struct EntitiesSettings: View {
             ForEach(sections) { section in
                 Section(isExpanded: expanded(section)) {
                     ForEach(section.entities) { entity in
-                        EntityRow(entity: entity, grouping: store.grouping)
+                        EntityRow(entity: entity, grouping: store.grouping, item: itemByID[entity.entityID]) { place, shown in
+                            show(entity, in: place, shown, item: itemByID[entity.entityID])
+                        } rename: {
+                            draft = model.draft(for: entity.entityID)
+                        }
                     }
                 } header: {
                     HStack {
@@ -67,6 +82,16 @@ struct EntitiesSettings: View {
         }
         .formStyle(.grouped)
         .onChange(of: sections.map(\.id), initial: true) { _, ids in store.visibleSections = ids }
+    }
+
+    /// The first place an entity shows asks for a name. After that the
+    /// toggles just show and hide it.
+    private func show(_ entity: KnownEntity, in place: Place, _ shown: Bool, item: MenuItem?) {
+        if shown && !(item?.isShownAnywhere ?? false) {
+            draft = model.draft(for: entity.entityID, turningOn: place)
+        } else {
+            model.setShown(entity.entityID, in: place, shown)
+        }
     }
 
     private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -136,23 +161,35 @@ struct EntitiesSettings: View {
     }
 }
 
-/// One entity: symbol and name, with the entity id on the trailing side.
+/// One entity: symbol, name, and entity id, with a toggle for each place it can show.
 private struct EntityRow: View {
     let entity: KnownEntity
     let grouping: EntityGrouping
+    let item: MenuItem?
+    let setShown: (Place, Bool) -> Void
+    let rename: () -> Void
 
     var body: some View {
         LabeledContent {
-            Text(entity.entityID)
-                .font(.callout.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .textSelection(.enabled)
+            HStack(spacing: Space.xs) {
+                ForEach(Place.allCases) { place in
+                    let shown = item?.isShown(in: place) ?? false
+                    // A checkmark too, so "on" doesn't rely on color alone.
+                    Toggle(isOn: Binding { shown } set: { setShown(place, $0) }) {
+                        if shown { Label(place.title, systemImage: "checkmark") } else { Text(place.title) }
+                    }
+                    .toggleStyle(.button)
+                    .controlSize(.small)
+                    .help(help(place, shown: shown))
+                    .accessibilityLabel("Show in \(place.title)")
+                }
+            }
         } label: {
             Label {
-                Text(name).lineLimit(1)
-                if let detail { Text(detail).lineLimit(1) }
+                Text(title).lineLimit(1)
+                Text(subtitle)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             } icon: {
                 Image(systemName: entity.symbol)
                     .foregroundStyle(.secondary)
@@ -161,6 +198,7 @@ private struct EntityRow: View {
         }
         .help(entity.entityID)
         .contextMenu {
+            Button("Rename…", action: rename)
             Button("Copy Entity ID") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(entity.entityID, forType: .string)
@@ -168,16 +206,25 @@ private struct EntityRow: View {
         }
     }
 
-    /// Under a device header, the device name is already shown.
-    private var name: String {
-        grouping == .device ? entity.nameWithinDevice : entity.name
+    /// The user's name for it, or Home Assistant's. Under a device header,
+    /// the device name is already shown.
+    private var title: String {
+        if let given = item?.givenName { return given }
+        return grouping == .device ? entity.nameWithinDevice : entity.name
     }
 
-    /// The other grouping's context: the area under a device, the device under an area or type.
-    private var detail: String? {
-        switch grouping {
-        case .device: nil
-        case .area, .type: entity.deviceName
-        }
+    /// The entity id, after Home Assistant's name when the user renamed it,
+    /// and after the device under an area or type header.
+    private var subtitle: String {
+        var parts: [String] = []
+        if item?.givenName != nil { parts.append(entity.name) }
+        if grouping != .device, let device = entity.deviceName { parts.append(device) }
+        parts.append(entity.entityID)
+        return parts.joined(separator: " · ")
+    }
+
+    private func help(_ place: Place, shown: Bool) -> String {
+        let where_ = place == .menuBar ? "the menu bar" : "the window"
+        return shown ? "Shown in \(where_). Click to hide." : "Show in \(where_)"
     }
 }

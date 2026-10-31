@@ -13,8 +13,8 @@ Snapshot pages:
 - `settings-entities`: the Entities tab (every scanned entity)
 
 Seed data (snapshot mode, served by a fake HA client):
-- Group **Living Room**: `light.living_room` (on, 60 %), `switch.tv_plug` (off), `sensor.living_room_temperature` (21.4 °C)
-- Group **Office**: `light.desk_lamp` (custom name "Desk", custom symbol `lamp.desk`), `sensor.office_power` (132 W)
+- Group **Living Room**: `light.living_room` (on), `remote.living_room_tv` named "TV" (on), `sensor.tv_plug_power` named "TV Power" (85.2 W), `sensor.living_room_temperature` named "Temperature" (21.4 °C)
+- Group **Office**: `light.desk_lamp` named "Desk" (off, window only), `sensor.office_power` (132 W, menu bar only)
 
 Every attribute the seed data uses is something a story lets the user create: groups (S-010), custom names and symbols (S-012), and order (S-011).
 
@@ -160,6 +160,19 @@ Acceptance:
 - [self] The list is saved beside the database and loads at launch; a failed scan keeps the last list and says why.
 - [self] Sections start collapsed and open with a click, Expand All, or View → Expand All Entity Sections (⌥⌘→); a search opens every matching section.
 - [self] Connect always scans; launch scans only when there's no list or it came from another server. File → Rescan Entities (⇧⌘R) and the Rescan button rescan.
+Status: done
+
+### S-015 Choose what shows in the menu bar and the window, and name it
+As the user, I turn on Menu Bar or Window next to any entity in Settings > Entities. The first time, a sheet asks for a name ("TV" instead of `sensor.tv_power`); blank keeps Home Assistant's name.
+Screens: settings-entities, item-sheet, menu-items, main
+Depends: S-009
+Acceptance:
+- [self] The first toggle opens the naming sheet with that place on; after that, toggles only show and hide. Hidden everywhere keeps the item and its name.
+- [self] A new item goes in the group named after its area, or "Other".
+- [self] Rename… (right-click in Settings > Entities or the main window) opens the same sheet.
+- [unit] Items show live values: "85.2 W", "21.4 °C", "On", "Open", "—" for unavailable.
+- [self] Lights, switches, remotes (`remote.living_room_tv`), input booleans, fans, and automations turn on and off with a click (the `toggle` service); sensors don't.
+- [unit] Live states come from `get_states` and `state_changed` over one WebSocket that reconnects with backoff.
 Status: done
 
 ---

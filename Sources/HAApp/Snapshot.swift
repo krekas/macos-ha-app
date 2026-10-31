@@ -53,6 +53,17 @@ enum Snapshot {
                 }
                 window.close()
             }
+            if only?.contains("item-sheet") ?? true {
+                var draft = model.draft(for: "switch.tv_plug", turningOn: .menuBar)
+                draft.name = "TV"
+                let window = hostWindow(ItemSheet(draft: draft), model: model)
+                for mode in ["light", "dark"] {
+                    NSApp.appearance = NSAppearance(named: mode == "light" ? .aqua : .darkAqua)
+                    try? await Task.sleep(for: .seconds(0.8))
+                    capture(to: "\(dir)/item-sheet-\(mode).png", window: window)
+                }
+                window.close()
+            }
             if only == nil || only?.contains("settings") == true {
                 openSettings()
                 try? await Task.sleep(for: .seconds(1))
@@ -76,7 +87,13 @@ enum Snapshot {
     /// The menu bar menu can't be opened from code, so the same view is
     /// hosted in a plain window of the same width for the snapshot.
     private static func menuWindow(model: AppModel) -> NSWindow {
-        let root = MenuView()
+        hostWindow(MenuView(), model: model)
+    }
+
+    /// A borderless window around a view, for views that open inside
+    /// something else (the menu bar menu, a sheet).
+    private static func hostWindow(_ view: some View, model: AppModel) -> NSWindow {
+        let root = view
             .environment(model)
             .modelContainer(model.container)
             .themed()

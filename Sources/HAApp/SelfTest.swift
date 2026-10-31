@@ -67,7 +67,7 @@ enum SelfTest {
             // Entity list: saved after a scan, kept when a scan fails.
             let store = model.entities
             store.replace(with: SeedData.sampleCatalog)
-            check("a scan is saved next to the database", EntityCatalog.load(from: store.url)?.entities.count == 12)
+            check("a scan is saved next to the database", EntityCatalog.load(from: store.url)?.entities.count == 13)
             let reloaded = EntityStore(url: store.url)
             check("the saved list loads at launch", reloaded.catalog == store.catalog)
             if let sample = ServerURL("http://homeassistant.local:8123"), let other = ServerURL("http://10.0.0.2:8123") {
@@ -76,7 +76,7 @@ enum SelfTest {
             }
             if let dead = ServerURL("http://127.0.0.1:9") {
                 await store.scan(server: dead, token: "x")
-                check("a failed scan keeps the last list", store.catalog?.entities.count == 12)
+                check("a failed scan keeps the last list", store.catalog?.entities.count == 13)
                 check("a failed scan says why", store.scanError?.hasPrefix("Can't reach Home Assistant") == true, store.scanError ?? "nil")
             }
             check("Rescan needs a connection", !model.canRescan)
@@ -95,6 +95,41 @@ enum SelfTest {
             store.grouping = .device
             store.collapseAll()
             check("Collapse All closes every section", !byDevice.contains { store.isExpanded($0.id) })
+
+            // S-015: show entities in the menu bar, the window, or both, with a name.
+            let live = model.live
+            live.preview(SeedData.sampleStates)
+            let tvDraft = model.draft(for: "remote.living_room_tv", turningOn: .menuBar)
+            check("the first toggle opens a new draft for that place",
+                  tvDraft.isNew && tvDraft.showInMenuBar && !tvDraft.showInWindow && tvDraft.name.isEmpty)
+            check("the draft offers Home Assistant's name", tvDraft.homeAssistantName == "Living Room TV")
+            var named = tvDraft
+            named.name = "  TV "
+            let tv = model.save(named)
+            check("a saved draft is an item with a trimmed name", tv?.customName == "TV" && tv.map(model.name(of:)) == "TV")
+            check("a new item goes in its area's group", tv?.group?.title == "Living Room")
+            check("it shows only where it was turned on", tv?.showInMenuBar == true && tv?.showInWindow == false)
+            model.setShown("remote.living_room_tv", in: .window, true)
+            check("the second toggle just shows it", tv?.showInWindow == true && !model.draft(for: "remote.living_room_tv").isNew)
+            model.setShown("remote.living_room_tv", in: .menuBar, false)
+            model.setShown("remote.living_room_tv", in: .window, false)
+            check("hidden everywhere keeps the item and its name", model.item(for: "remote.living_room_tv")?.customName == "TV")
+            check("shown again, it asks for a name again", model.draft(for: "remote.living_room_tv", turningOn: .window).isNew)
+            var blank = model.draft(for: "sensor.tv_plug_power", turningOn: .window)
+            blank.name = " "
+            if let power = model.save(blank) {
+                check("a blank name uses Home Assistant's", power.customName == nil && model.name(of: power) == "TV Plug Power")
+                check("a sensor shows its value and unit", live.states[power.entityID]?.displayValue == "85.2 W")
+            }
+            if let loose = model.save(model.draft(for: "sun.sun", turningOn: .window)) {
+                check("an entity with no area goes in Other", loose.group?.title == "Other")
+            }
+            // A remote turns on and off like a switch.
+            live.toggle("remote.living_room_tv")
+            check("toggling a remote flips it", live.states["remote.living_room_tv"]?.isOn == false)
+            live.toggle("sensor.tv_plug_power")
+            check("a sensor can't be toggled", live.states["sensor.tv_plug_power"]?.state == "85.2")
+            live.stop()
 
             // S-030: Open at login shows the real registration, and tests never change it.
             let login = LoginItem.shared

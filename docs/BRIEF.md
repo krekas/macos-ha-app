@@ -15,7 +15,7 @@ Opening the Home Assistant web UI or phone app to toggle a light or check a sens
 ## Data
 - **Server**: base URL, long-lived access token (stored in Keychain, never in plain files), connection state.
 - **MenuGroup**: title, order, collapsed flag.
-- **MenuItem**: entity_id, custom name (optional), custom SF Symbol (optional), order, group.
+- **MenuItem**: entity_id, custom name (optional), custom SF Symbol (optional), order, group, shown in the menu bar, shown in the window.
 - **EntityState** (live, not persisted): entity_id, domain, state, attributes (friendly_name, unit, brightness, device_class), last_changed.
 
 ## Shape

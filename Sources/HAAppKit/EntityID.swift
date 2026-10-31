@@ -24,13 +24,15 @@ public struct EntityID: Hashable, Sendable, CustomStringConvertible {
         objectID.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
     }
 
-    /// Domains the menu supports in version one.
-    public static let supportedDomains: Set<String> = ["light", "switch", "sensor"]
+    /// Domains whose entities turn on and off with the `toggle` service.
+    /// A TV usually has two: `switch.tv` (a smart plug cuts its power) and
+    /// `remote.living_room_tv` (the TV itself), and both work the same way.
+    public static let toggleableDomains: Set<String> = [
+        "light", "switch", "remote", "input_boolean", "fan", "automation", "siren", "humidifier",
+    ]
 
-    public var isSupported: Bool { Self.supportedDomains.contains(domain) }
-
-    /// Lights and switches turn on and off; sensors are read-only.
-    public var isToggleable: Bool { domain == "light" || domain == "switch" }
+    /// Clicking the item turns it on or off. Everything else shows its value.
+    public var isToggleable: Bool { Self.toggleableDomains.contains(domain) }
 
     /// "binary_sensor" -> "Binary Sensor", for section titles.
     public static func domainTitle(_ domain: String) -> String {
@@ -42,6 +44,9 @@ public struct EntityID: Hashable, Sendable, CustomStringConvertible {
         switch domain {
         case "light": "lightbulb"
         case "switch": "powerplug"
+        case "remote": "appletvremote.gen4"
+        case "siren": "light.beacon.max"
+        case "humidifier": "humidifier"
         case "sensor": "gauge"
         case "binary_sensor": "dot.radiowaves.left.and.right"
         case "climate": "thermometer.medium"

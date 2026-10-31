@@ -25,7 +25,8 @@ func rejects(_ input: String) {
 @Test func domains() {
     #expect(EntityID("light.a")?.isToggleable == true)
     #expect(EntityID("switch.a")?.isToggleable == true)
+    #expect(EntityID("remote.living_room_tv")?.isToggleable == true)
+    #expect(EntityID("input_boolean.guest_mode")?.isToggleable == true)
     #expect(EntityID("sensor.a")?.isToggleable == false)
-    #expect(EntityID("sensor.a")?.isSupported == true)
-    #expect(EntityID("climate.a")?.isSupported == false)
+    #expect(EntityID("binary_sensor.a")?.isToggleable == false)
 }
