@@ -10,12 +10,16 @@ enum Layout {
     static let menuEmptyHeight: CGFloat = 200
     /// The column for an item's symbol, so names line up.
     static let symbolColumn: CGFloat = 20
+    /// A tile in the main window: its narrowest width, its height, and its round symbol badge.
+    static let tileMinWidth: CGFloat = 200
+    static let tileHeight: CGFloat = 64
+    static let tileBadge: CGFloat = 36
     /// The main window's smallest size.
     static let mainMinWidth: CGFloat = 360
     static let mainMinHeight: CGFloat = 320
     /// The main window's first size.
-    static let mainDefaultWidth: CGFloat = 420
-    static let mainDefaultHeight: CGFloat = 520
+    static let mainDefaultWidth: CGFloat = 680
+    static let mainDefaultHeight: CGFloat = 480
     /// The Settings page beside the sidebar.
     static let settingsWidth: CGFloat = 520
     /// Text fields in Settings rows, so long values (an access token) don't stretch the row.

@@ -40,19 +40,30 @@ struct MainView: View {
                 }
             }
         } else {
-            List {
-                ForEach(filled) { group in
-                    Section(group.title) {
-                        ForEach(group.sortedItems.filter(\.showInWindow)) { item in
-                            ItemRow(item: item)
-                                .contextMenu {
-                                    Button("Rename…") { draft = model.draft(for: item.entityID) }
-                                    Button("Hide from Window") { model.setShown(item.entityID, in: .window, false) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: Space.xxl) {
+                    ForEach(filled) { group in
+                        VStack(alignment: .leading, spacing: Space.md) {
+                            Text(group.title)
+                                .font(.title3.weight(.semibold))
+                                .gridProbe("group-\(group.title)", area: "main")
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: Layout.tileMinWidth), spacing: Space.md)],
+                                      spacing: Space.md) {
+                                ForEach(group.sortedItems.filter(\.showInWindow)) { item in
+                                    ItemTile(item: item)
+                                        .contextMenu {
+                                            Button("Rename…") { draft = model.draft(for: item.entityID) }
+                                            Button("Hide from Window") { model.setShown(item.entityID, in: .window, false) }
+                                        }
                                 }
+                            }
                         }
                     }
                 }
+                .padding(Space.margin)
+                .gridArea("main")
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 }

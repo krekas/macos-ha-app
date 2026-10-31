@@ -80,57 +80,44 @@ struct ItemRow: View {
     let item: MenuItem
 
     var body: some View {
-        let name = model.name(of: item)
-        let state = model.live.states[item.entityID]
-        if item.entity?.isToggleable == true {
-            let isOn = state?.isOn == true
-            let canToggle = model.live.isLive && state != nil && state?.isUnavailable != true
-            content(name: name, state: state, isOn: isOn) {
-                Toggle(name, isOn: Binding(get: { isOn }, set: { _ in toggle() }))
+        let status = ItemStatus(item: item, model: model)
+        if status.isToggleable {
+            content(status) {
+                Toggle(status.name, isOn: Binding(get: { status.isOn }, set: { _ in status.toggle() }))
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .labelsHidden()
                     .tint(Palette.accent)
             }
-            .onTapGesture { if canToggle { toggle() } }
-            .disabled(!canToggle)
-            .help(help(name: name, state: state))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(name)
-            .accessibilityValue(value(state))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint(isOn ? "Turn Off" : "Turn On")
-            .accessibilityAction { if canToggle { toggle() } }
+            .onTapGesture { status.toggle() }
+            .disabled(!status.canToggle)
+            .help(status.help)
+            .itemToggleAccessibility(status)
         } else {
-            content(name: name, state: state, isOn: false) {
-                Text(value(state))
+            content(status) {
+                Text(status.value)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .lineLimit(1)
                     .contentTransition(.numericText())
-                    .animation(Motion.numberRoll, value: state?.displayValue)
+                    .animation(Motion.numberRoll, value: status.value)
             }
-            .help(help(name: name, state: state))
+            .help(status.help)
             .accessibilityElement(children: .combine)
         }
     }
 
-    private func toggle() {
-        withAnimation(Motion.quick) { model.live.toggle(item.entityID) }
-    }
-
-    private func content(name: String, state: EntityState?, isOn: Bool,
-                         @ViewBuilder trailing: () -> some View) -> some View {
+    private func content(_ status: ItemStatus, @ViewBuilder trailing: () -> some View) -> some View {
         HStack(spacing: Space.sm) {
-            Image(systemName: symbol(state))
-                .symbolVariant(isOn ? .fill : .none)
-                .foregroundStyle(isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            Image(systemName: status.symbol)
+                .symbolVariant(status.isOn ? .fill : .none)
+                .foregroundStyle(status.isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                 .frame(width: Layout.symbolColumn)
-            Text(name)
+            Text(status.name)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: Space.sm)
-            if model.live.errors[item.entityID] != nil {
+            if status.error != nil {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
             }
@@ -139,31 +126,6 @@ struct ItemRow: View {
         .padding(.horizontal, Space.sm)
         .padding(.vertical, Space.xs)
         .contentShape(Rectangle())
-        .opacity(isMissing(state) ? 0.5 : 1)
-    }
-
-    /// Live and connected, but Home Assistant has no such entity.
-    private func isMissing(_ state: EntityState?) -> Bool {
-        state == nil && model.live.isLive
-    }
-
-    private func symbol(_ state: EntityState?) -> String {
-        isMissing(state) && item.customSymbol == nil ? "questionmark.circle" : item.symbol
-    }
-
-    private func value(_ state: EntityState?) -> String {
-        if let state { return state.displayValue }
-        return isMissing(state) ? "Not found" : "—"
-    }
-
-    private func help(name: String, state: EntityState?) -> String {
-        if let error = model.live.errors[item.entityID] {
-            return "Couldn't turn \(state?.isOn == true ? "off" : "on") \(name): \(error)"
-        }
-        if isMissing(state) { return "\(item.entityID) isn't in Home Assistant anymore." }
-        if state?.isUnavailable == true { return "Home Assistant reports \(name) as unavailable." }
-        guard model.live.isLive else { return "\(item.entityID): not connected to Home Assistant" }
-        if item.entity?.isToggleable == true { return state?.isOn == true ? "Turn off \(name)" : "Turn on \(name)" }
-        return item.entityID
+        .opacity(status.isMissing ? 0.5 : 1)
     }
 }
