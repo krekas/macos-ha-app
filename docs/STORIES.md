@@ -158,6 +158,7 @@ Acceptance:
 - [unit] Group by Device, Area, or Type; sections sorted by title, "No Device"/"No Area" last. Under Device, names drop the device prefix.
 - [unit] Search matches every word against name, entity id, device, and area, ignoring case and accents.
 - [self] The list is saved beside the database and loads at launch; a failed scan keeps the last list and says why.
+- [self] Sections start collapsed and open with a click, Expand All, or View → Expand All Entity Sections (⌥⌘→); a search opens every matching section.
 - [self] Connect always scans; launch scans only when there's no list or it came from another server. File → Rescan Entities (⇧⌘R) and the Rescan button rescan.
 Status: done
 

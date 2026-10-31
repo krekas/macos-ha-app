@@ -84,6 +84,17 @@ enum SelfTest {
             check("search finds sensors by area", store.catalog?.sections(by: .type, matching: "office sensor")
                 .flatMap(\.entities).map(\.entityID) == ["sensor.office_energy", "sensor.office_power"])
 
+            store.grouping = .device
+            check("sections start collapsed", !store.isExpanded("dev-Desk Lamp"))
+            store.visibleSections = byDevice.map(\.id)
+            store.expandAll()
+            check("Expand All opens every section", byDevice.allSatisfy { store.isExpanded($0.id) })
+            store.grouping = .area
+            check("each grouping keeps its own open sections", !store.isExpanded("Office"))
+            store.grouping = .device
+            store.collapseAll()
+            check("Collapse All closes every section", !byDevice.contains { store.isExpanded($0.id) })
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }

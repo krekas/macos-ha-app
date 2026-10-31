@@ -123,5 +123,13 @@ struct EntityCommands: Commands {
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(!model.canRescan)
         }
+        CommandGroup(after: .sidebar) {
+            Button("Expand All Entity Sections") { model.entities.expandAll() }
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .disabled(model.settingsTab != .entities)
+            Button("Collapse All Entity Sections") { model.entities.collapseAll() }
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                .disabled(model.settingsTab != .entities)
+        }
     }
 }

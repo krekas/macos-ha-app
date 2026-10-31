@@ -17,6 +17,22 @@ final class EntityStore {
         didSet { if !Store.isOverridden { UserDefaults.standard.set(grouping.rawValue, forKey: "entities.grouping") } }
     }
 
+    /// Open sections on the Entities page, per grouping, for this session.
+    private var expanded: [EntityGrouping: Set<String>] = [:]
+    /// The sections the Entities page shows now, for Expand All.
+    var visibleSections: [String] = []
+
+    func isExpanded(_ section: String) -> Bool {
+        expanded[grouping, default: []].contains(section)
+    }
+
+    func setExpanded(_ section: String, _ open: Bool) {
+        if open { expanded[grouping, default: []].insert(section) } else { expanded[grouping]?.remove(section) }
+    }
+
+    func expandAll() { expanded[grouping] = Set(visibleSections) }
+    func collapseAll() { expanded[grouping] = [] }
+
     let url: URL
 
     init(url: URL) {

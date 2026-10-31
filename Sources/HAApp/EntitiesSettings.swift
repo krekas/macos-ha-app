@@ -33,6 +33,14 @@ struct EntitiesSettings: View {
                 Picker("Group by", selection: $store.grouping) {
                     ForEach(EntityGrouping.allCases) { Text($0.title).tag($0) }
                 }
+                LabeledContent("Sections") {
+                    HStack(spacing: Space.sm) {
+                        Button("Expand All") { store.expandAll() }
+                            .disabled(searching)
+                        Button("Collapse All") { store.collapseAll() }
+                            .disabled(searching)
+                    }
+                }
             }
             if sections.isEmpty {
                 Section {
@@ -42,7 +50,7 @@ struct EntitiesSettings: View {
                 }
             }
             ForEach(sections) { section in
-                Section {
+                Section(isExpanded: expanded(section)) {
                     ForEach(section.entities) { entity in
                         EntityRow(entity: entity, grouping: store.grouping)
                     }
@@ -58,6 +66,19 @@ struct EntitiesSettings: View {
             }
         }
         .formStyle(.grouped)
+        .onChange(of: sections.map(\.id), initial: true) { _, ids in store.visibleSections = ids }
+    }
+
+    private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// Sections start collapsed, so a big home opens fast. A search opens
+    /// every section with a match; clearing it brings back the user's choice.
+    private func expanded(_ section: EntitySection) -> Binding<Bool> {
+        Binding {
+            searching || model.entities.isExpanded(section.id)
+        } set: { open in
+            model.entities.setExpanded(section.id, open)
+        }
     }
 
     @ViewBuilder

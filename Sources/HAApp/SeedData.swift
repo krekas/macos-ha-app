@@ -25,6 +25,8 @@ enum SeedData {
         model.addItem(entityID: "sensor.office_power", to: office)
         try? model.context.save()
         model.entities.replace(with: sampleCatalog)
+        // One open section, so snapshots show both states.
+        model.entities.setExpanded("dev-Living Room Climate", true)
     }
 
     /// What a scan of the sample home finds (Settings > Entities).
