@@ -73,7 +73,8 @@ private struct GroupSection: View {
 }
 
 /// One item: its symbol, name, and live value. A light, switch, remote, or
-/// other on/off entity is a button: a click turns it on or off.
+/// other on/off entity shows a switch instead of its value: flip the switch,
+/// or click anywhere on the row, to turn it on or off.
 struct ItemRow: View {
     @Environment(AppModel.self) private var model
     let item: MenuItem
@@ -81,27 +82,45 @@ struct ItemRow: View {
     var body: some View {
         let name = model.name(of: item)
         let state = model.live.states[item.entityID]
-        let isOn = state?.isOn == true && item.entity?.isToggleable == true
         if item.entity?.isToggleable == true {
-            Button {
-                withAnimation(Motion.quick) { model.live.toggle(item.entityID) }
-            } label: {
-                content(name: name, state: state, isOn: isOn)
+            let isOn = state?.isOn == true
+            let canToggle = model.live.isLive && state != nil && state?.isUnavailable != true
+            content(name: name, state: state, isOn: isOn) {
+                Toggle(name, isOn: Binding(get: { isOn }, set: { _ in toggle() }))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .labelsHidden()
+                    .tint(Palette.accent)
             }
-            .buttonStyle(.plain)
-            .disabled(!model.live.isLive || state == nil || state?.isUnavailable == true)
+            .onTapGesture { if canToggle { toggle() } }
+            .disabled(!canToggle)
             .help(help(name: name, state: state))
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(name)
             .accessibilityValue(value(state))
+            .accessibilityAddTraits(.isButton)
             .accessibilityHint(isOn ? "Turn Off" : "Turn On")
+            .accessibilityAction { if canToggle { toggle() } }
         } else {
-            content(name: name, state: state, isOn: false)
-                .help(help(name: name, state: state))
-                .accessibilityElement(children: .combine)
+            content(name: name, state: state, isOn: false) {
+                Text(value(state))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .contentTransition(.numericText())
+                    .animation(Motion.numberRoll, value: state?.displayValue)
+            }
+            .help(help(name: name, state: state))
+            .accessibilityElement(children: .combine)
         }
     }
 
-    private func content(name: String, state: EntityState?, isOn: Bool) -> some View {
+    private func toggle() {
+        withAnimation(Motion.quick) { model.live.toggle(item.entityID) }
+    }
+
+    private func content(name: String, state: EntityState?, isOn: Bool,
+                         @ViewBuilder trailing: () -> some View) -> some View {
         HStack(spacing: Space.sm) {
             Image(systemName: symbol(state))
                 .symbolVariant(isOn ? .fill : .none)
@@ -115,12 +134,7 @@ struct ItemRow: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
             }
-            Text(value(state))
-                .foregroundStyle(isOn ? AnyShapeStyle(Palette.accentText) : AnyShapeStyle(.secondary))
-                .monospacedDigit()
-                .lineLimit(1)
-                .contentTransition(.numericText())
-                .animation(Motion.numberRoll, value: state?.displayValue)
+            trailing()
         }
         .padding(.horizontal, Space.sm)
         .padding(.vertical, Space.xs)
