@@ -45,6 +45,7 @@ struct HAAppApp: App {
                 .overlay { if GridOverlay.enabled { GridOverlay() } }
         }
         .windowResizability(.contentSize)
+        .windowToolbarStyle(.unified)
     }
 }
 

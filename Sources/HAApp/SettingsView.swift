@@ -1,20 +1,34 @@
 import SwiftUI
 
-/// The Settings window (Command-Comma). One tab per topic, at most about
-/// six. Each tab is a grouped Form that sizes to its content, so the
-/// window grows to fit and shows no scroll bar it does not need.
+/// The Settings window (Command-Comma). Topics sit in a sidebar on the left,
+/// grouped in sections, like System Settings; the selected topic's grouped
+/// Form fills the right side. The window title follows the topic. The owner
+/// asked for a sidebar instead of toolbar tabs, so the app can grow past six
+/// topics without changing the window.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
-        TabView(selection: $model.settingsTab) {
-            ForEach(SettingsTab.allCases) { tab in
-                page(tab)
-                    .tabItem { Label(tab.title, systemImage: tab.symbol) }
-                    .tag(tab)
+        NavigationSplitView {
+            List(selection: $model.settingsTab) {
+                ForEach(SettingsSection.allCases) { section in
+                    Section(section.title) {
+                        ForEach(section.tabs) { tab in
+                            Label(tab.title, systemImage: tab.symbol)
+                                .tag(tab)
+                        }
+                    }
+                }
             }
+            .navigationSplitViewColumnWidth(Layout.settingsSidebarWidth)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            page(model.settingsTab)
+                .navigationTitle(model.settingsTab.title)
         }
+        .frame(width: Layout.settingsSidebarWidth + Layout.settingsWidth,
+               height: Layout.settingsHeight)
         .noInitialFocus()
     }
 
@@ -27,18 +41,39 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .fitsContent()
-        .frame(width: Layout.settingsWidth)
     }
 }
 
-/// The Settings tabs. Snapshot mode walks through every case.
+/// The sidebar's sections, in order. Each holds one or more tabs.
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case app
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .app: "HAApp"
+        }
+    }
+
+    var tabs: [SettingsTab] {
+        SettingsTab.allCases.filter { $0.section == self }
+    }
+}
+
+/// The Settings topics. Snapshot mode walks through every case.
 enum SettingsTab: String, CaseIterable, Identifiable {
     // Menu (S-006) comes with its story.
     case general
     case appearance
 
     var id: String { rawValue }
+
+    var section: SettingsSection {
+        switch self {
+        case .general, .appearance: .app
+        }
+    }
 
     var title: String {
         switch self {

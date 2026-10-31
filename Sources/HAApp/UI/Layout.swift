@@ -16,6 +16,10 @@ enum Layout {
     /// The main window's first size.
     static let mainDefaultWidth: CGFloat = 420
     static let mainDefaultHeight: CGFloat = 520
-    /// Every Settings tab.
+    /// The Settings page beside the sidebar.
     static let settingsWidth: CGFloat = 520
+    /// The Settings sidebar.
+    static let settingsSidebarWidth: CGFloat = 200
+    /// The Settings window's height; a longer page scrolls.
+    static let settingsHeight: CGFloat = 400
 }
