@@ -2,49 +2,69 @@ import Foundation
 import SwiftData
 import HAAppKit
 
+/// A titled section of items in the menu.
 @Model
-final class Item {
+final class MenuGroup {
     var title: String
-    var notes: String = ""
-    var isStarred: Bool = false
-    var createdAt: Date = Date.now
+    var order: Int
+    var isCollapsed: Bool = false
+    @Relationship(deleteRule: .nullify, inverse: \MenuItem.group)
+    var items: [MenuItem] = []
     /// A stable id for links, sync, and the agent CLI.
     var uuid: UUID = UUID()
 
-    init(title: String) {
+    init(title: String, order: Int) {
         self.title = title
+        self.order = order
     }
+
+    var sortedItems: [MenuItem] { items.sorted { $0.order < $1.order } }
 }
 
-/// The sidebar pages. Snapshot mode walks through every case.
-enum SidebarItem: String, CaseIterable, Identifiable {
-    case all, starred
+/// One Home Assistant entity added to the menu.
+@Model
+final class MenuItem {
+    /// The Home Assistant entity id, like `light.desk_lamp`.
+    var entityID: String
+    /// Shown instead of the friendly name when set.
+    var customName: String?
+    /// An SF Symbol shown instead of the default for the domain.
+    var customSymbol: String?
+    var order: Int
+    var group: MenuGroup?
+    var uuid: UUID = UUID()
 
-    var id: String { rawValue }
+    init(entityID: String, order: Int, group: MenuGroup? = nil) {
+        self.entityID = entityID
+        self.order = order
+        self.group = group
+    }
 
-    var title: String {
-        switch self {
-        case .all: "All Items"
-        case .starred: "Starred"
-        }
+    var entity: EntityID? { EntityID(entityID) }
+
+    /// The name the menu shows. The friendly name from Home Assistant comes in a later story.
+    var displayName: String {
+        if let customName, !customName.isEmpty { return customName }
+        return entity?.fallbackName ?? entityID
     }
 
     var symbol: String {
-        switch self {
-        case .all: "tray"
-        case .starred: "star"
+        if let customSymbol, !customSymbol.isEmpty { return customSymbol }
+        switch entity?.domain {
+        case "light": return "lightbulb"
+        case "switch": return "powerplug"
+        case "sensor": return "gauge"
+        default: return "questionmark.circle"
         }
     }
 }
 
-/// App-wide state that menus, toolbars, and views share.
+/// App-wide state that the menu, Settings, and the self-test share.
 @Observable
 final class AppModel {
     let container: ModelContainer
-    var sidebar: SidebarItem? = .all
-    var selection: PersistentIdentifier?
     /// Settings reopens on the last tab. Test and snapshot runs leave it alone.
-    var settingsTab: SettingsTab = SettingsTab(rawValue: UserDefaults.standard.string(forKey: "settings.tab") ?? "") ?? .general {
+    var settingsTab: SettingsTab = SettingsTab(rawValue: UserDefaults.standard.string(forKey: "settings.tab") ?? "") ?? .appearance {
         didSet { if !Store.isOverridden { UserDefaults.standard.set(settingsTab.rawValue, forKey: "settings.tab") } }
     }
 
@@ -52,10 +72,29 @@ final class AppModel {
         self.container = container
     }
 
-    func addItem(title: String = "") {
-        let item = Item(title: ItemTitle.clean(title))
-        if sidebar == .starred { item.isStarred = true }
-        container.mainContext.insert(item)
-        selection = item.id
+    var context: ModelContext { container.mainContext }
+
+    func groups() -> [MenuGroup] {
+        (try? context.fetch(FetchDescriptor<MenuGroup>(sortBy: [SortDescriptor(\.order)]))) ?? []
+    }
+
+    func addGroup(title: String) -> MenuGroup {
+        let group = MenuGroup(title: title, order: (groups().map(\.order).max() ?? -1) + 1)
+        context.insert(group)
+        return group
+    }
+
+    /// Adds an entity to the end of a group. Returns nil for a malformed entity id.
+    @discardableResult
+    func addItem(entityID: String, to group: MenuGroup?) -> MenuItem? {
+        guard let id = EntityID(entityID) else { return nil }
+        let order = (group?.items.map(\.order).max() ?? -1) + 1
+        let item = MenuItem(entityID: id.description, order: order, group: group)
+        context.insert(item)
+        return item
+    }
+
+    func remove(_ item: MenuItem) {
+        context.delete(item)
     }
 }

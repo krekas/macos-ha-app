@@ -3,9 +3,9 @@
 Source: `docs/BRIEF.md`. There is no reference app, so `Screens:` lists the snapshot pages that will show each story.
 
 Snapshot pages:
-- `popover-empty`: the popover before anything is added
-- `popover-items`: the popover with the seed groups
-- `popover-offline`: the popover when the server can't be reached
+- `menu-empty`: the menu before anything is added
+- `menu-items`: the menu with the seed groups
+- `menu-offline`: the menu when the server can't be reached
 - `settings-connection`: the Connection tab
 - `settings-menu`: the Menu tab
 - `entity-picker`: the sheet for adding entities
@@ -55,12 +55,12 @@ Status: todo
 
 ### S-003 Open the menu from the menu bar
 As the user, I click the HAApp icon in the menu bar and the menu opens showing my chosen entities.
-Screens: popover-empty, popover-items
+Screens: menu-empty, menu-items
 Depends: S-002
 Acceptance:
-- [snap] `popover-items` shows the groups and rows in order, each row with a symbol, a name, and its state.
-- [snap] `popover-empty` explains that nothing is added yet and has an "Add Entities…" button that opens Settings → Menu.
-- [snap] The popover footer has Settings… and Quit HAApp.
+- [snap] `menu-items` shows the groups and rows in order, each row with a symbol, a name, and its state.
+- [snap] `menu-empty` explains that nothing is added yet and has an "Add Entities…" button that opens Settings → Menu.
+- [snap] The menu footer has Settings… and Quit HAApp.
 - [self] The app has no Dock icon (`LSUIElement`).
 UX:
 - Flow: click the menu bar icon (or the global shortcut, S-031) -> the menu opens with keyboard focus on the first item -> click outside, Escape, or click the icon again to close.
@@ -72,7 +72,7 @@ Status: todo
 
 ### S-004 Turn a light or switch on or off from the menu
 As the user, I click a light or switch row to turn it on or off.
-Screens: popover-items
+Screens: menu-items
 Depends: S-003
 Acceptance:
 - [unit] Clicking a row sends `call_service` with domain `light`/`switch`, service `toggle`, and the row's `entity_id`.
@@ -88,7 +88,7 @@ Status: todo
 
 ### S-005 Read a sensor value in the menu
 As the user, I see sensors like temperature and power with their value and unit.
-Screens: popover-items
+Screens: menu-items
 Depends: S-003
 Acceptance:
 - [unit] A sensor row shows `state` + `unit_of_measurement` ("21.4 °C", "132 W"), and `unavailable`/`unknown` shows as "—".
@@ -109,7 +109,7 @@ Depends: S-002
 Acceptance:
 - [snap] The picker lists the supported entities (`light.*`, `switch.*`, `sensor.*`) with their friendly name and `entity_id`, and has a search field.
 - [unit] Search matches the friendly name or `entity_id`, ignoring case.
-- [self] Added entities appear in the popover right away, in the order they were added.
+- [self] Added entities appear in the menu right away, in the order they were added.
 UX:
 - Flow: Settings → Menu tab -> "+" button below the list or the empty-state "Add Entities…" button (also from the menu's empty state) -> sheet "Add Entities" with the search field focused -> type, check entities -> "Add" (Return) -> sheet closes, new items selected in the list. Escape or "Cancel" closes without changes.
 - Surface: sheet on the Settings window (one short task that must finish or cancel).
@@ -134,11 +134,11 @@ Status: todo
 
 ### S-008 See when the server is unreachable
 As the user, I can tell at a glance when HAApp isn't connected.
-Screens: popover-offline
+Screens: menu-offline
 Depends: S-003
 Acceptance:
 - [snap] When disconnected, the menu bar icon shows a slashed variant.
-- [snap] `popover-offline` shows a banner "Can't reach Home Assistant. Retrying…" with a Retry button. Rows are dimmed and can't be clicked.
+- [snap] `menu-offline` shows a banner "Can't reach Home Assistant. Retrying…" with a Retry button. Rows are dimmed and can't be clicked.
 UX:
 - Flow: connection drops -> menu bar icon changes to its slashed variant -> opening the menu shows a banner at the top -> "Retry" reconnects now; it otherwise retries on its own.
 - Surface: inline banner at the top of the menu (information plus one action; never an alert).
@@ -153,11 +153,11 @@ Status: todo
 
 ### S-010 Create and rename groups
 As the user, I add a group in Settings → Menu, name it, and move items into it.
-Screens: settings-menu, popover-items
+Screens: settings-menu, menu-items
 Depends: S-006
 Acceptance:
-- [snap] Groups appear as section headers in both Settings and the popover.
-- [self] Renaming a group updates the popover header right away. Deleting a group asks first and moves its items to "Ungrouped".
+- [snap] Groups appear as section headers in both Settings and the menu.
+- [self] Renaming a group updates the menu header right away. Deleting a group asks first and moves its items to "Ungrouped".
 Status: todo
 
 ### S-011 Reorder items and groups by dragging
@@ -166,12 +166,12 @@ Screens: settings-menu
 Depends: S-010
 Acceptance:
 - [unit] Moving an item updates `order` for its group only, and moving it across groups updates both groups.
-- [self] The new order shows in the popover and survives a relaunch.
+- [self] The new order shows in the menu and survives a relaunch.
 Status: todo
 
 ### S-012 Give an item a custom name and symbol
 As the user, I select an item and set a display name and an SF Symbol.
-Screens: settings-menu, popover-items
+Screens: settings-menu, menu-items
 Depends: S-006
 Acceptance:
 - [snap] The inspector shows a name field (with the friendly name as placeholder) and a symbol picker with search.
@@ -183,12 +183,12 @@ As the user, I select an item and press Delete, or choose Remove from its contex
 Screens: settings-menu
 Depends: S-006
 Acceptance:
-- [self] The item disappears from Settings and the popover. Command-Z undoes it.
+- [self] The item disappears from Settings and the menu. Command-Z undoes it.
 Status: todo
 
-### S-014 Collapse a group in the popover
-As the user, I click a group header in the popover to collapse or expand it.
-Screens: popover-items
+### S-014 Collapse a group in the menu
+As the user, I click a group header in the menu to collapse or expand it.
+Screens: menu-items
 Depends: S-010
 Acceptance:
 - [unit] The collapsed state is saved per group and survives a relaunch.
@@ -200,7 +200,7 @@ Status: todo
 
 ### S-020 Set brightness of a dimmable light
 As the user, I adjust a dimmable light's brightness with a slider in its row.
-Screens: popover-items
+Screens: menu-items
 Depends: S-004
 Acceptance:
 - [unit] The slider only appears when `supported_color_modes` includes a mode that supports brightness.
@@ -217,19 +217,19 @@ Acceptance:
 - [self] The toggle uses `SMAppService.mainApp` and reflects the real registration status.
 Status: todo
 
-### S-031 Open the popover with a global shortcut
-As the user, I press a shortcut I chose (no default) to open the popover from anywhere.
+### S-031 Open the menu with a global shortcut
+As the user, I press a shortcut I chose (no default) to open the menu from anywhere.
 Depends: S-003
 Acceptance:
-- [manual] The shortcut opens and closes the popover while any app is frontmost.
+- [manual] The shortcut opens and closes the menu while any app is frontmost.
 - [snap] Settings → General has a shortcut recorder.
 Status: todo
 
-### S-032 Navigate the popover with the keyboard
+### S-032 Navigate the menu with the keyboard
 As the user, I use the arrow keys to move between rows, Return or Space to toggle, and Escape to close.
 Depends: S-004
 Acceptance:
-- [self] The focus ring follows the arrow keys, Return toggles the focused light or switch, and Escape closes the popover.
+- [self] The focus ring follows the arrow keys, Return toggles the focused light or switch, and Escape closes the menu.
 Status: todo
 
 ---
@@ -242,10 +242,10 @@ Acceptance:
 Status: todo
 
 ### S-041 First-run welcome
-As a new user, opening the popover before connecting shows one step: "Connect to Home Assistant", with a button to the Connection tab.
+As a new user, opening the menu before connecting shows one step: "Connect to Home Assistant", with a button to the Connection tab.
 Depends: S-001
 Acceptance:
-- [snap] `popover-empty` shows different text before and after connecting.
+- [snap] `menu-empty` shows different text before and after connecting.
 Status: todo
 
 ---

@@ -1,16 +1,18 @@
 import AppKit
 import IOKit.pwr_mgt
+import SwiftData
 import SwiftUI
 
 /// Screenshot mode for agents.
 ///   APP_STORE=/tmp/test.store APP_SNAPSHOT=/tmp/shots ~/Applications/HAApp.app/Contents/MacOS/HAApp
-/// writes <page>-light.png and <page>-dark.png for every sidebar page, and
-/// settings-<tab>-light.png and settings-<tab>-dark.png for every Settings tab, then quits.
+/// writes menu-light.png and menu-dark.png (the menu bar menu, hosted in its own
+/// window), and settings-<tab>-light.png and settings-<tab>-dark.png for every
+/// Settings tab, then quits.
 /// Each PNG gets a <page>-<mode>-layout.json with the grid probes (tools/check-layout.swift).
-/// APP_SNAPSHOT_PAGES=all,starred limits the pages. Add "settings" to include Settings.
+/// APP_SNAPSHOT_PAGES=menu,settings limits the pages.
 /// Add APP_ACCENT=<id> to see the pages in another accent.
 enum Snapshot {
-    static func runIfRequested(model: AppModel, openSettings: OpenSettingsAction) {
+    static func runIfRequested(model: AppModel) {
         let env = ProcessInfo.processInfo.environment
         guard let dir = env["APP_SNAPSHOT"], !dir.isEmpty else { return }
         // Snapshots never run against the real database.
@@ -29,17 +31,17 @@ enum Snapshot {
             IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
                                         IOPMAssertionLevel(kIOPMAssertionLevelOn), "Snapshots" as CFString, &awake)
             try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            try? await Task.sleep(for: .seconds(1.5))
-            for mode in ["light", "dark"] {
-                NSApp.appearance = NSAppearance(named: mode == "light" ? .aqua : .darkAqua)
-                for page in SidebarItem.allCases where only?.contains(page.rawValue) ?? true {
-                    model.sidebar = page
+            try? await Task.sleep(for: .seconds(1))
+            if only?.contains("menu") ?? true {
+                let window = menuWindow(model: model)
+                for mode in ["light", "dark"] {
+                    NSApp.appearance = NSAppearance(named: mode == "light" ? .aqua : .darkAqua)
                     try? await Task.sleep(for: .seconds(0.8))
-                    capture(to: "\(dir)/\(page.rawValue)-\(mode).png")
+                    capture(to: "\(dir)/menu-\(mode).png", window: window)
                 }
+                window.close()
             }
             if only == nil || only?.contains("settings") == true {
-                let main = NSApp.windows.first { $0.canBecomeMain && !$0.isSheet }
                 openSettings()
                 try? await Task.sleep(for: .seconds(1))
                 for mode in ["light", "dark"] {
@@ -47,7 +49,7 @@ enum Snapshot {
                     for tab in SettingsTab.allCases {
                         model.settingsTab = tab
                         try? await Task.sleep(for: .seconds(0.8))
-                        let settings = NSApp.windows.first { $0.isVisible && $0 !== main && !$0.isSheet }
+                        let settings = NSApp.windows.first { $0.isVisible && !$0.isSheet && $0.canBecomeKey }
                         capture(to: "\(dir)/settings-\(tab.rawValue)-\(mode).png", window: settings)
                     }
                 }
@@ -57,6 +59,38 @@ enum Snapshot {
             for window in NSApp.windows { if let sheet = window.attachedSheet { window.endSheet(sheet) } }
             NSApp.terminate(nil)
         }
+    }
+
+    /// The menu bar menu can't be opened from code, so the same view is
+    /// hosted in a plain window of the same width for the snapshot.
+    private static func menuWindow(model: AppModel) -> NSWindow {
+        let root = MenuView()
+            .environment(model)
+            .modelContainer(model.container)
+            .themed()
+        // Sized once to fit, not live: live sizing fights the menu's scroll view.
+        let host = NSHostingView(rootView: root)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: host.fittingSize),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        window.backgroundColor = .windowBackgroundColor
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+
+    /// Opens Settings through the app menu's Settings item, the same path as
+    /// Command-Comma. An agent app has no visible menu bar, but the menu exists.
+    private static func openSettings() {
+        NSApp.activate()
+        guard let appMenu = NSApp.mainMenu?.items.first?.submenu,
+              let index = appMenu.items.firstIndex(where: { $0.keyEquivalent == "," })
+        else {
+            print("SNAPSHOT no Settings menu item")
+            return
+        }
+        appMenu.performActionForItem(at: index)
     }
 
     /// Captures the real window with screencapture, so glass, sidebars, and

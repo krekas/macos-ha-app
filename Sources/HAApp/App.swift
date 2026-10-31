@@ -2,11 +2,11 @@ import AppKit
 import SwiftData
 import SwiftUI
 
-// HAApp
+// HAApp: a menu bar app for Home Assistant. No Dock icon (LSUIElement in Info.plist).
 //   HAApp                      the app
 //   APP_STORE=<file> HAApp     use another database (tests, experiments)
-//   APP_SNAPSHOT=<dir> HAApp   save a PNG of every sidebar page and Settings tab in light and dark mode, then quit
-//   APP_SEED=1 HAApp           fill an empty /tmp store with sample items (tools/snap.sh)
+//   APP_SNAPSHOT=<dir> HAApp   save a PNG of the menu and every Settings tab in light and dark mode, then quit
+//   APP_SEED=1 HAApp           fill an empty /tmp store with sample groups and items (tools/snap.sh)
 //   HAApp --selftest           run the self-test on a /tmp store and quit with 0 or 1 (tools/selftest.sh)
 //   APP_ACCENT=<id> HAApp      run with another accent from Theme.all (UI/Theme.swift)
 //   APP_GRID=1 HAApp           draw the 8 pt grid and the layout probes over the window
@@ -14,45 +14,40 @@ import SwiftUI
 @main
 struct HAAppApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var model = AppModel(container: Store.makeContainer())
 
     var body: some Scene {
-        Window("HAApp", id: "main") {
-            ContentView()
-                .environment(model)
+        MenuBarExtra("HAApp", systemImage: "house") {
+            MenuView()
+                .environment(delegate.model)
+                .modelContainer(delegate.model.container)
                 .themed()
-                .overlay { if GridOverlay.enabled { GridOverlay() } }
-                .frame(minWidth: 760, minHeight: 480)
         }
-        .modelContainer(model.container)
-        .defaultSize(width: 1100, height: 720)
-        .windowToolbarStyle(.unified)
-        .commands {
-            SidebarCommands()
-            ToolbarCommands()
-            CommandGroup(replacing: .newItem) {
-                Button("New Item") { model.addItem() }
-                    .keyboardShortcut("n")
-            }
-        }
+        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView()
-                .environment(model)
+                .environment(delegate.model)
+                .modelContainer(delegate.model.container)
                 .themed()
+                .overlay { if GridOverlay.enabled { GridOverlay() } }
         }
         .windowResizability(.contentSize)
     }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Owned here, not in the App, so seed data, the self-test, and snapshots
+    /// can start at launch: the menu's views only load when it first opens.
+    let model = AppModel(container: Store.makeContainer())
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Started from a terminal, the process is not a foreground app yet.
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate()
+        SeedData.insertIfRequested(into: model)
+        SelfTest.runIfRequested(model: model)
+        Snapshot.runIfRequested(model: model)
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    /// Closing Settings leaves the menu bar item running.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// The self-test's result becomes the exit code, after a normal quit.
     func applicationWillTerminate(_ notification: Notification) {
@@ -78,7 +73,7 @@ enum Store {
 
     static func makeContainer() -> ModelContainer {
         do {
-            return try ModelContainer(for: Item.self, configurations: ModelConfiguration(url: url))
+            return try ModelContainer(for: MenuGroup.self, MenuItem.self, configurations: ModelConfiguration(url: url))
         } catch {
             fatalError("Could not open the database at \(url.path): \(error)")
         }

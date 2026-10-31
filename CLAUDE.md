@@ -1,7 +1,9 @@
 # HAApp
 
-A native macOS app in SwiftUI. It runs on this Mac only, with a local
-SwiftData database and no server.
+A native macOS menu bar app in SwiftUI for Home Assistant. It talks to the
+user's Home Assistant server over its WebSocket and REST API, and keeps the
+menu layout (groups and items) in a local SwiftData database. No Dock icon
+(LSUIElement). See docs/BRIEF.md, docs/STORIES.md, and docs/GLOSSARY.md.
 
 ## Layout
 
@@ -18,7 +20,7 @@ SwiftData database and no server.
 - Unit tests: `swift test --scratch-path ~/Library/Developer/HAApp/test-build`.
 - Self-test (the app's real functions on a /tmp store): `tools/selftest.sh`. Exit 0 when every check passes. Add a check for every story with logic in `SelfTest.swift`.
 - After every UI change, take snapshots with sample data and look at them: `tools/snap.sh`.
-  It writes `/tmp/HAApp-shots/<page>-light.png` and `-dark.png` for every sidebar page, and `settings-<tab>-light.png` and `-dark.png` for every Settings tab, then quits. `APP_SNAPSHOT_PAGES=all,settings tools/snap.sh` limits the pages.
+  It writes `/tmp/HAApp-shots/menu-light.png` and `-dark.png` for the menu bar menu (hosted in a borderless window, since the real one can't be opened from code), and `settings-<tab>-light.png` and `-dark.png` for every Settings tab, then quits. `APP_SNAPSHOT_PAGES=menu,settings tools/snap.sh` limits the pages.
   For a panel, sheet, or popover, add a capture to `Snapshot.swift` like the Settings loop.
 - Snapshots, seed data, and the self-test refuse to run without `APP_STORE` in /tmp.
 - Never test against the real database in `~/Library/Application Support/HAApp/`.

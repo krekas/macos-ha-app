@@ -25,22 +25,26 @@ enum SelfTest {
         }
         Task {
             try? await Task.sleep(for: .seconds(0.5))
-            let context = model.container.mainContext
-            func items() -> [Item] { (try? context.fetch(FetchDescriptor<Item>())) ?? [] }
+            let context = model.context
+            func items() -> [MenuItem] { (try? context.fetch(FetchDescriptor<MenuItem>())) ?? [] }
 
-            let before = items().count
-            model.addItem()
-            check("New Item adds one item", items().count == before + 1)
-            check("the new item is selected", model.selection != nil)
-
-            if let item = items().first(where: { $0.id == model.selection }) {
-                item.isStarred.toggle()
-                check("starring an item marks it starred", item.isStarred)
-                context.delete(item)
+            let group = model.addGroup(title: "Office")
+            let first = model.addItem(entityID: "light.desk_lamp", to: group)
+            let second = model.addItem(entityID: " Sensor.Office_Power ", to: group)
+            check("adding an entity creates an item", first != nil && items().count == 2)
+            check("entity ids are normalized", second?.entityID == "sensor.office_power")
+            check("items keep the order they were added", group.sortedItems.map(\.entityID) == ["light.desk_lamp", "sensor.office_power"])
+            check("a malformed entity id is refused", model.addItem(entityID: "desk lamp", to: group) == nil)
+            check("a custom name wins over the fallback", {
+                first?.customName = "Desk"
+                return first?.displayName == "Desk"
+            }())
+            check("a new group goes last", model.addGroup(title: "Kitchen").order == group.order + 1)
+            if let first {
+                model.remove(first)
                 try? context.save()
-                check("deleting the item removes it", items().count == before)
+                check("removing an item leaves the others", items().map(\.entityID) == ["sensor.office_power"])
             }
-            check("titles are cleaned", ItemTitle.clean("  Buy   milk ") == "Buy milk")
 
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
