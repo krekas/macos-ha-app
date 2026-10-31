@@ -11,6 +11,7 @@ normal window with a Dock icon; the menu bar icon is optional (Settings > Genera
 - `Sources/HAAppKit/` rules and data logic with no SwiftUI. Tests in `Tests/HAAppKitTests/`.
 - `Package.swift` a Swift package. There is no Xcode project.
 - `build.sh` builds, signs, and installs `~/Applications/HAApp.app`.
+- `tools/release.sh 1.0.0` builds an ad hoc signed zip and publishes it as GitHub Release v1.0.0 (`--dry-run` builds the zip only).
 - `Icon/AppIcon.icon` the app icon, an Icon Composer file (JSON plus SVG layers). `build.sh` compiles it with `tools/make_icon.sh`; `tools/icon_review.sh` renders every look into one PNG.
 - `docs/` the brief, the screen index, and the user stories, when they exist.
 

@@ -6,6 +6,9 @@
 # Usage: ./build.sh            release build, install
 #        ./build.sh --debug    debug build, install
 #        ./build.sh --open     install, then quit the running copy and open the new one
+# Env:   APP_DIR=/some/dir     put HAApp.app there instead of ~/Applications
+#        APP_VERSION=1.2.0     version shown in Finder and About (default 0.1)
+#        SIGN_IDENTITY=-       sign ad hoc even when you have a certificate
 set -euo pipefail
 here=${0:A:h}
 name="HAApp"
@@ -32,12 +35,13 @@ if [[ -n "$stale" ]]; then
   exit 1
 fi
 
-app="$HOME/Applications/$name.app"
-mkdir -p "$HOME/Applications"
+app_dir="${APP_DIR:-$HOME/Applications}"
+app="$app_dir/$name.app"
+mkdir -p "$app_dir"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/$name"
-sed -e "s/__BUILD__/$(date +%Y%m%d%H%M)/" "$here/Info.plist.in" > "$app/Contents/Info.plist"
+sed -e "s/__BUILD__/$(date +%Y%m%d%H%M)/" -e "s/__VERSION__/${APP_VERSION:-0.1}/" "$here/Info.plist.in" > "$app/Contents/Info.plist"
 # The icon: Icon/AppIcon.icon -> Resources/Assets.car + AppIcon.icns, rebuilt when it changed.
 if [[ -d "$here/Icon/AppIcon.icon" ]]; then
   car="$here/Resources/Assets.car"
