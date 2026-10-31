@@ -24,12 +24,20 @@ struct GeneralSettings: View {
     var body: some View {
         @Bindable var connection = model.connection
         Section {
-            TextField("Server URL", text: $connection.serverText, prompt: Text("http://homeassistant.local:8123"))
-                .textContentType(.URL)
-                .autocorrectionDisabled()
-                .onSubmit(connect)
-            SecureField("Access token", text: $connection.tokenText, prompt: Text("Paste a long-lived access token"))
-                .onSubmit(connect)
+            // Fixed-width fields: a pasted token is 180+ characters and would
+            // otherwise stretch the row. Long text scrolls inside the field.
+            LabeledContent("Server URL") {
+                TextField("Server URL", text: $connection.serverText, prompt: Text("http://homeassistant.local:8123"))
+                    .textContentType(.URL)
+                    .autocorrectionDisabled()
+                    .onSubmit(connect)
+                    .settingsField()
+            }
+            LabeledContent("Access token") {
+                SecureField("Access token", text: $connection.tokenText, prompt: Text("Paste a long-lived access token"))
+                    .onSubmit(connect)
+                    .settingsField()
+            }
             LabeledContent {
                 HStack(spacing: Space.sm) {
                     if connection.isConnected {
@@ -63,6 +71,16 @@ struct GeneralSettings: View {
     private func connect() {
         guard model.connection.canConnect else { return }
         Task { await model.connection.connect() }
+    }
+}
+
+private extension View {
+    /// A text field at a fixed width on the trailing edge of a Settings row.
+    func settingsField() -> some View {
+        labelsHidden()
+            .multilineTextAlignment(.trailing)
+            .lineLimit(1)
+            .frame(width: Layout.settingsFieldWidth)
     }
 }
 

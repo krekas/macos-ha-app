@@ -18,6 +18,8 @@ enum Layout {
     static let mainDefaultHeight: CGFloat = 520
     /// The Settings page beside the sidebar.
     static let settingsWidth: CGFloat = 520
+    /// Text fields in Settings rows, so long values (an access token) don't stretch the row.
+    static let settingsFieldWidth: CGFloat = 280
     /// The Settings sidebar.
     static let settingsSidebarWidth: CGFloat = 200
     /// The Settings window's height; a longer page scrolls.
