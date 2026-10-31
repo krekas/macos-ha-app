@@ -37,12 +37,6 @@ final class Connection {
     var hasSavedToken: Bool { server != nil && !tokenText.isEmpty }
     var canConnect: Bool { ServerURL(serverText) != nil && !tokenText.trimmingCharacters(in: .whitespaces).isEmpty }
 
-    /// Checks the saved settings at launch, so the status is right without a click.
-    func checkSaved() {
-        guard hasSavedToken else { return }
-        Task { await connect() }
-    }
-
     /// Tries the fields against Home Assistant and saves them when it answers.
     func connect() async {
         guard let url = ServerURL(serverText) else {

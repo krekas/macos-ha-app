@@ -50,12 +50,8 @@ final class MenuItem {
 
     var symbol: String {
         if let customSymbol, !customSymbol.isEmpty { return customSymbol }
-        switch entity?.domain {
-        case "light": return "lightbulb"
-        case "switch": return "powerplug"
-        case "sensor": return "gauge"
-        default: return "questionmark.circle"
-        }
+        guard let domain = entity?.domain else { return "questionmark.circle" }
+        return EntityID.symbol(forDomain: domain)
     }
 }
 
@@ -65,6 +61,8 @@ final class AppModel {
     let container: ModelContainer
     /// The server URL, access token, and connection status (Settings > General).
     let connection = Connection(persists: !Store.isOverridden)
+    /// Every entity from the last scan (Settings > Entities).
+    let entities = EntityStore(url: Store.entitiesURL)
     /// Settings reopens on the last tab. Test and snapshot runs leave it alone.
     var settingsTab: SettingsTab = SettingsTab(rawValue: UserDefaults.standard.string(forKey: "settings.tab") ?? "") ?? .general {
         didSet { if !Store.isOverridden { UserDefaults.standard.set(settingsTab.rawValue, forKey: "settings.tab") } }
@@ -75,6 +73,31 @@ final class AppModel {
     }
 
     var context: ModelContext { container.mainContext }
+
+    /// Connect in Settings > General. A successful Connect always scans the
+    /// entities, since the server or its entities may have changed.
+    func connect() async {
+        await connection.connect()
+        if connection.isConnected { await rescanEntities() }
+    }
+
+    /// At launch: check the saved connection, and scan only when there's no
+    /// list yet or it came from another server.
+    func checkSaved() async {
+        guard connection.hasSavedToken else { return }
+        await connection.connect()
+        if connection.isConnected, let server = connection.server, entities.needsScan(for: server) {
+            await rescanEntities()
+        }
+    }
+
+    var canRescan: Bool { connection.isConnected && !entities.isScanning }
+
+    /// Reads the whole entity list from Home Assistant again.
+    func rescanEntities() async {
+        guard connection.isConnected, let server = connection.server else { return }
+        await entities.scan(server: server, token: connection.tokenText)
+    }
 
     func groups() -> [MenuGroup] {
         (try? context.fetch(FetchDescriptor<MenuGroup>(sortBy: [SortDescriptor(\.order)]))) ?? []

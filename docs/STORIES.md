@@ -10,6 +10,7 @@ Snapshot pages:
 - `settings-general`: the General tab (connection and menu bar)
 - `settings-menu`: the Menu tab
 - `entity-picker`: the sheet for adding entities
+- `settings-entities`: the Entities tab (every scanned entity)
 
 Seed data (snapshot mode, served by a fake HA client):
 - Group **Living Room**: `light.living_room` (on, 60 %), `switch.tv_plug` (off), `sensor.living_room_temperature` (21.4 °C)
@@ -147,6 +148,18 @@ UX:
 - Words: "Retry", "Connection Settings".
 - Access: the banner is the first focusable element; the icon change is paired with the VoiceOver label "HAApp, not connected" on the menu bar item.
 Status: todo
+
+### S-009 Browse every entity, scanned once and saved
+As the user, I open Settings → Entities and see every Home Assistant entity grouped by device, search it, and rescan when I add devices.
+Screens: settings-entities
+Depends: S-001
+Acceptance:
+- [unit] A scan joins `get_states` with the entity, device, and area registries (WebSocket). An entity's own area wins over its device's.
+- [unit] Group by Device, Area, or Type; sections sorted by title, "No Device"/"No Area" last. Under Device, names drop the device prefix.
+- [unit] Search matches every word against name, entity id, device, and area, ignoring case and accents.
+- [self] The list is saved beside the database and loads at launch; a failed scan keeps the last list and says why.
+- [self] Connect always scans; launch scans only when there's no list or it came from another server. File → Rescan Entities (⇧⌘R) and the Rescan button rescan.
+Status: done
 
 ---
 

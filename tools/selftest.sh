@@ -3,5 +3,5 @@
 set -u
 rm -rf ~/Library/Saved\ Application\ State/com.krekas.haapp.savedState
 store=/tmp/HAApp-self.store
-rm -f $store $store-shm $store-wal
+rm -f $store $store-shm $store-wal ${store:r}.entities.json
 APP_STORE=$store ~/Applications/HAApp.app/Contents/MacOS/HAApp --selftest

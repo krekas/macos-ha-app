@@ -70,7 +70,7 @@ struct GeneralSettings: View {
 
     private func connect() {
         guard model.connection.canConnect else { return }
-        Task { await model.connection.connect() }
+        Task { await model.connect() }
     }
 }
 

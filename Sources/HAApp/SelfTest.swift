@@ -63,6 +63,27 @@ enum SelfTest {
             connection.disconnect()
             check("Disconnect clears the token", connection.tokenText.isEmpty && connection.status == .notConnected)
 
+            // Entity list: saved after a scan, kept when a scan fails.
+            let store = model.entities
+            store.replace(with: SeedData.sampleCatalog)
+            check("a scan is saved next to the database", EntityCatalog.load(from: store.url)?.entities.count == 12)
+            let reloaded = EntityStore(url: store.url)
+            check("the saved list loads at launch", reloaded.catalog == store.catalog)
+            if let sample = ServerURL("http://homeassistant.local:8123"), let other = ServerURL("http://10.0.0.2:8123") {
+                check("the same server needs no new scan", !store.needsScan(for: sample))
+                check("another server needs a new scan", store.needsScan(for: other))
+            }
+            if let dead = ServerURL("http://127.0.0.1:9") {
+                await store.scan(server: dead, token: "x")
+                check("a failed scan keeps the last list", store.catalog?.entities.count == 12)
+                check("a failed scan says why", store.scanError?.hasPrefix("Can't reach Home Assistant") == true, store.scanError ?? "nil")
+            }
+            check("Rescan needs a connection", !model.canRescan)
+            let byDevice = store.catalog?.sections(by: .device) ?? []
+            check("grouped by device, loose entities last", byDevice.first?.title == "Desk Lamp" && byDevice.last?.title == "No Device")
+            check("search finds sensors by area", store.catalog?.sections(by: .type, matching: "office sensor")
+                .flatMap(\.entities).map(\.entityID) == ["sensor.office_energy", "sensor.office_power"])
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }

@@ -34,25 +34,32 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func page(_ tab: SettingsTab) -> some View {
-        Form {
-            switch tab {
-            case .general: GeneralSettings()
-            case .appearance: AppearanceSettings()
+        switch tab {
+        // Entities owns its Form: it adds a search field and an empty state.
+        case .entities: EntitiesSettings()
+        case .general, .appearance:
+            Form {
+                switch tab {
+                case .appearance: AppearanceSettings()
+                default: GeneralSettings()
+                }
             }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
     }
 }
 
 /// The sidebar's sections, in order. Each holds one or more tabs.
 enum SettingsSection: String, CaseIterable, Identifiable {
     case app
+    case homeAssistant
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .app: "HAApp"
+        case .homeAssistant: "Home Assistant"
         }
     }
 
@@ -66,12 +73,14 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     // Menu (S-006) comes with its story.
     case general
     case appearance
+    case entities
 
     var id: String { rawValue }
 
     var section: SettingsSection {
         switch self {
         case .general, .appearance: .app
+        case .entities: .homeAssistant
         }
     }
 
@@ -79,6 +88,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .appearance: "Appearance"
+        case .entities: "Entities"
         }
     }
 
@@ -86,6 +96,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .appearance: "paintpalette"
+        case .entities: "list.bullet.rectangle"
         }
     }
 }

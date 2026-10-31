@@ -28,6 +28,7 @@ struct HAAppApp: App {
         }
         .defaultSize(width: Layout.mainDefaultWidth, height: Layout.mainDefaultHeight)
         .keyboardShortcut("0")
+        .commands { EntityCommands(model: delegate.model) }
 
         MenuBarExtra("HAApp", systemImage: "house", isInserted: $preferences.showInMenuBar) {
             MenuView()
@@ -58,7 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SeedData.insertIfRequested(into: model)
         SelfTest.runIfRequested(model: model)
         Snapshot.runIfRequested(model: model)
-        if !Store.isOverridden { model.connection.checkSaved() }
+        // Checks the saved settings, so the status is right without a click.
+        if !Store.isOverridden { Task { await model.checkSaved() } }
         // Opened from Finder, the Dock, or a script: come to the front, above other apps.
         NSApp.activate()
     }
@@ -95,11 +97,31 @@ enum Store {
         return dir.appending(path: "HAApp.store")
     }
 
+    /// The saved entity list, beside the database: HAApp.entities.json.
+    static var entitiesURL: URL {
+        url.deletingPathExtension().appendingPathExtension("entities.json")
+    }
+
     static func makeContainer() -> ModelContainer {
         do {
             return try ModelContainer(for: MenuGroup.self, MenuItem.self, configurations: ModelConfiguration(url: url))
         } catch {
             fatalError("Could not open the database at \(url.path): \(error)")
+        }
+    }
+}
+
+/// Menu bar commands for the entity list.
+struct EntityCommands: Commands {
+    let model: AppModel
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("Rescan Entities") {
+                Task { await model.rescanEntities() }
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .disabled(!model.canRescan)
         }
     }
 }
