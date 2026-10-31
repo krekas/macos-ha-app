@@ -2,7 +2,8 @@ import AppKit
 import SwiftData
 import SwiftUI
 
-// HAApp: a menu bar app for Home Assistant. No Dock icon (LSUIElement in Info.plist).
+// HAApp: a Mac app for Home Assistant. It opens a window; the menu bar icon is
+// optional (Settings > General > Show in menu bar).
 //   HAApp                      the app
 //   APP_STORE=<file> HAApp     use another database (tests, experiments)
 //   APP_SNAPSHOT=<dir> HAApp   save a PNG of the menu and every Settings tab in light and dark mode, then quit
@@ -15,8 +16,20 @@ import SwiftUI
 struct HAAppApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
+    @Bindable private var preferences = Preferences.shared
+
     var body: some Scene {
-        MenuBarExtra("HAApp", systemImage: "house") {
+        Window("HAApp", id: MainWindow.id) {
+            MainView()
+                .environment(delegate.model)
+                .modelContainer(delegate.model.container)
+                .themed()
+                .overlay { if GridOverlay.enabled { GridOverlay() } }
+        }
+        .defaultSize(width: Layout.mainDefaultWidth, height: Layout.mainDefaultHeight)
+        .keyboardShortcut("0")
+
+        MenuBarExtra("HAApp", systemImage: "house", isInserted: $preferences.showInMenuBar) {
             MenuView()
                 .environment(delegate.model)
                 .modelContainer(delegate.model.container)
@@ -44,15 +57,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SeedData.insertIfRequested(into: model)
         SelfTest.runIfRequested(model: model)
         Snapshot.runIfRequested(model: model)
+        if !Store.isOverridden { model.connection.checkSaved() }
+        // Opened from Finder, the Dock, or a script: come to the front, above other apps.
+        NSApp.activate()
     }
 
-    /// Closing Settings leaves the menu bar item running.
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    /// Closing the last window quits, unless the menu bar icon keeps HAApp running.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        if Snapshot.requested || SelfTest.requested { return false }
+        return !Preferences.shared.showInMenuBar
+    }
 
     /// The self-test's result becomes the exit code, after a normal quit.
     func applicationWillTerminate(_ notification: Notification) {
         if SelfTest.requested { exit(SelfTest.exitCode) }
     }
+}
+
+enum MainWindow {
+    static let id = "main"
 }
 
 /// Where the data lives: ~/Library/Application Support/HAApp/HAApp.store

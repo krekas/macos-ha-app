@@ -4,6 +4,7 @@ import SwiftUI
 /// What opens when you click the HAApp icon in the menu bar.
 /// Live states, turning things on and off, and sensor values come with S-002 to S-005.
 struct MenuView: View {
+    @Environment(\.openWindow) private var openWindow
     @Query(sort: \MenuGroup.order) private var groups: [MenuGroup]
 
     var body: some View {
@@ -36,6 +37,11 @@ struct MenuView: View {
 
     private var footer: some View {
         HStack {
+            Button("Open HAApp") {
+                openWindow(id: MainWindow.id)
+                NSApp.activate()
+            }
+            .keyboardShortcut("0")
             SettingsLink { Text("Settings…") }
                 .keyboardShortcut(",")
             Spacer()
@@ -67,7 +73,7 @@ private struct GroupSection: View {
     }
 }
 
-private struct ItemRow: View {
+struct ItemRow: View {
     let item: MenuItem
 
     var body: some View {

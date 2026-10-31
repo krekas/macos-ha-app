@@ -46,6 +46,23 @@ enum SelfTest {
                 check("removing an item leaves the others", items().map(\.entityID) == ["sensor.office_power"])
             }
 
+            // S-001: connect to a server that isn't there.
+            let connection = model.connection
+            check("Connect needs a URL and a token", !connection.canConnect)
+            connection.serverText = "http://127.0.0.1:9/"
+            connection.tokenText = "not-a-token"
+            check("Connect is ready with a URL and a token", connection.canConnect)
+            await connection.connect()
+            if case .failed(let result, let message) = connection.status {
+                check("an unreachable server says so", result == .unreachable
+                      && message.hasPrefix("Can't reach Home Assistant at http://127.0.0.1:9."), message)
+            } else {
+                check("an unreachable server says so", false, "\(connection.status)")
+            }
+            check("a failed connect saves nothing", connection.server == nil)
+            connection.disconnect()
+            check("Disconnect clears the token", connection.tokenText.isEmpty && connection.status == .notConnected)
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }

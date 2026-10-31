@@ -10,6 +10,12 @@ enum Layout {
     static let menuEmptyHeight: CGFloat = 200
     /// The column for an item's symbol, so names line up.
     static let symbolColumn: CGFloat = 20
+    /// The main window's smallest size.
+    static let mainMinWidth: CGFloat = 360
+    static let mainMinHeight: CGFloat = 320
+    /// The main window's first size.
+    static let mainDefaultWidth: CGFloat = 420
+    static let mainDefaultHeight: CGFloat = 520
     /// Every Settings tab.
     static let settingsWidth: CGFloat = 520
 }

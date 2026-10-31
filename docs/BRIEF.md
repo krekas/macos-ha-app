@@ -19,7 +19,7 @@ Opening the Home Assistant web UI or phone app to toggle a light or check a sens
 - **EntityState** (live, not persisted): entity_id, domain, state, attributes (friendly_name, unit, brightness, device_class), last_changed.
 
 ## Shape
-A single menu bar icon (`MenuBarExtra`, window style) that opens a popover with the custom groups and items. A Settings window has the **Connection** tab (URL and token, plus a Test button) and the **Menu** tab (entity picker with search, drag to reorder, groups). It's an agent app with no Dock icon. macOS 26 or later.
+A normal app with a Dock icon and a main window that shows the custom groups and items. A menu bar icon (`MenuBarExtra`, window style) with the same groups and items is optional: Settings > General > "Show in menu bar". When it's on, HAApp keeps running after its window closes. A Settings window has the **General** tab (server URL and access token with Connect, and the menu bar toggle) and the **Menu** tab (entity picker with search, drag to reorder, groups). macOS 26 or later.
 
 ## Connection
 Home Assistant API, with no add-on or integration needed on the HA side:

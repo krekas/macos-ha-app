@@ -63,8 +63,10 @@ final class MenuItem {
 @Observable
 final class AppModel {
     let container: ModelContainer
+    /// The server URL, access token, and connection status (Settings > General).
+    let connection = Connection(persists: !Store.isOverridden)
     /// Settings reopens on the last tab. Test and snapshot runs leave it alone.
-    var settingsTab: SettingsTab = SettingsTab(rawValue: UserDefaults.standard.string(forKey: "settings.tab") ?? "") ?? .appearance {
+    var settingsTab: SettingsTab = SettingsTab(rawValue: UserDefaults.standard.string(forKey: "settings.tab") ?? "") ?? .general {
         didSet { if !Store.isOverridden { UserDefaults.standard.set(settingsTab.rawValue, forKey: "settings.tab") } }
     }
 

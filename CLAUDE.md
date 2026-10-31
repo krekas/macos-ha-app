@@ -1,9 +1,9 @@
 # HAApp
 
-A native macOS menu bar app in SwiftUI for Home Assistant. It talks to the
+A native macOS app in SwiftUI for Home Assistant. It talks to the
 user's Home Assistant server over its WebSocket and REST API, and keeps the
-menu layout (groups and items) in a local SwiftData database. No Dock icon
-(LSUIElement). See docs/BRIEF.md, docs/STORIES.md, and docs/GLOSSARY.md.
+menu layout (groups and items) in a local SwiftData database. It opens a
+normal window with a Dock icon; the menu bar icon is optional (Settings > General). See docs/BRIEF.md, docs/STORIES.md, and docs/GLOSSARY.md.
 
 ## Layout
 

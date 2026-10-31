@@ -6,7 +6,8 @@ Snapshot pages:
 - `menu-empty`: the menu before anything is added
 - `menu-items`: the menu with the seed groups
 - `menu-offline`: the menu when the server can't be reached
-- `settings-connection`: the Connection tab
+- `main`: the main window
+- `settings-general`: the General tab (connection and menu bar)
 - `settings-menu`: the Menu tab
 - `entity-picker`: the sheet for adding entities
 
@@ -21,21 +22,21 @@ Every attribute the seed data uses is something a story lets the user create: gr
 ## M1 Core loop: connect, pick, toggle
 
 ### S-001 Connect to Home Assistant with a URL and token
-As the user, I open Settings → Connection, paste my server URL and a long-lived access token, and click Connect.
-Screens: settings-connection
+As the user, I open Settings → General, paste my server URL and a long-lived access token, and click Connect.
+Screens: settings-general
 Acceptance:
-- [snap] The Connection tab shows a URL field, a secure token field, a Connect button, and a status line.
+- [snap] The General tab shows a URL field, a secure token field, a Connect button, and a status line.
 - [unit] The URL is normalized: a trailing slash is stripped, `http`/`https` is kept, and `ws(s)://…/api/websocket` is derived from it.
 - [unit] The WebSocket auth handshake (`auth_required` → `auth` → `auth_ok`/`auth_invalid`) is parsed into a connection state.
 - [self] With a bad token the error reads "Home Assistant rejected the access token. …", and with a server that can't be reached it reads "Can't reach Home Assistant at <url>. …".
 - [unit] The token is saved in the Keychain and the URL in UserDefaults. The token never appears in plain files or logs.
 UX:
-- Flow: Menu footer "Settings…" (⌘,) or the first-run "Connect to Home Assistant" button -> Connection tab, Server URL field has focus -> paste URL, Tab, paste access token -> Return or "Connect" -> status line changes to "Connected to Home Assistant 2026.10" -> close Settings. Way back: fields keep their last saved values until Connect succeeds; "Disconnect" clears the token.
+- Flow: Menu footer "Settings…" (⌘,) or the first-run "Connect to Home Assistant" button -> General tab, Server URL field has focus -> paste URL, Tab, paste access token -> Return or "Connect" -> status line changes to "Connected to Home Assistant 2026.10" -> close Settings. Way back: fields keep their last saved values until Connect succeeds; "Disconnect" clears the token.
 - Surface: a Settings window tab (a place people come back to). Errors are shown inline under the fields, never in an alert.
 - States: empty fields with placeholders `http://homeassistant.local:8123` and "Paste a long-lived access token"; a spinner and "Connecting…" after half a second; error "Home Assistant rejected the access token. Create a new one in your Home Assistant profile under Security." (with a "Open Profile" link button) or "Can't reach Home Assistant at <url>. Check the server URL and that the server is running."; done "Connected to Home Assistant <version>" with a green dot and the word "Connected".
 - Words: "Server URL", "Access token", "Connect", "Disconnect", help text under the token field: "Create one in Home Assistant: Profile → Security → Long-lived access tokens."
 - Access: Return triggers Connect (default button); the token is a SecureField; the status is announced via VoiceOver when it changes; status uses a word plus a dot, not color alone.
-Status: todo
+Status: in progress (URL, token in Keychain, REST check done; WebSocket handshake with S-002)
 
 ### S-002 Stay connected and receive live state
 As the user, I see entity states update within a second of changing them anywhere else (wall switch, HA UI).
@@ -61,7 +62,7 @@ Acceptance:
 - [snap] `menu-items` shows the groups and rows in order, each row with a symbol, a name, and its state.
 - [snap] `menu-empty` explains that nothing is added yet and has an "Add Entities…" button that opens Settings → Menu.
 - [snap] The menu footer has Settings… and Quit HAApp.
-- [self] The app has no Dock icon (`LSUIElement`).
+- [self] The menu bar icon shows only when Settings → General → "Show in menu bar" is on (off by default). The app has a Dock icon and a main window.
 UX:
 - Flow: click the menu bar icon (or the global shortcut, S-031) -> the menu opens with keyboard focus on the first item -> click outside, Escape, or click the icon again to close.
 - Surface: `MenuBarExtra` with `.window` style (a few related choices tied to one control). Fixed width 320 pt, height grows with content up to 560 pt, then scrolls.
@@ -242,7 +243,7 @@ Acceptance:
 Status: todo
 
 ### S-041 First-run welcome
-As a new user, opening the menu before connecting shows one step: "Connect to Home Assistant", with a button to the Connection tab.
+As a new user, opening the menu before connecting shows one step: "Connect to Home Assistant", with a button to the General tab.
 Depends: S-001
 Acceptance:
 - [snap] `menu-empty` shows different text before and after connecting.

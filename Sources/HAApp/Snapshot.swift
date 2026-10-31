@@ -5,13 +5,15 @@ import SwiftUI
 
 /// Screenshot mode for agents.
 ///   APP_STORE=/tmp/test.store APP_SNAPSHOT=/tmp/shots ~/Applications/HAApp.app/Contents/MacOS/HAApp
-/// writes menu-light.png and menu-dark.png (the menu bar menu, hosted in its own
+/// writes main-light.png and main-dark.png (the main window), menu-light.png and menu-dark.png (the menu bar menu, hosted in its own
 /// window), and settings-<tab>-light.png and settings-<tab>-dark.png for every
 /// Settings tab, then quits.
 /// Each PNG gets a <page>-<mode>-layout.json with the grid probes (tools/check-layout.swift).
 /// APP_SNAPSHOT_PAGES=menu,settings limits the pages.
 /// Add APP_ACCENT=<id> to see the pages in another accent.
 enum Snapshot {
+    static var requested: Bool { !(ProcessInfo.processInfo.environment["APP_SNAPSHOT"] ?? "").isEmpty }
+
     static func runIfRequested(model: AppModel) {
         let env = ProcessInfo.processInfo.environment
         guard let dir = env["APP_SNAPSHOT"], !dir.isEmpty else { return }
@@ -32,6 +34,16 @@ enum Snapshot {
                                         IOPMAssertionLevel(kIOPMAssertionLevelOn), "Snapshots" as CFString, &awake)
             try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
             try? await Task.sleep(for: .seconds(1))
+            let main = NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(MainWindow.id) == true }
+            if only?.contains("main") ?? true {
+                for mode in ["light", "dark"] {
+                    NSApp.appearance = NSAppearance(named: mode == "light" ? .aqua : .darkAqua)
+                    try? await Task.sleep(for: .seconds(0.8))
+                    capture(to: "\(dir)/main-\(mode).png", window: main)
+                }
+            }
+            // Out of the way, so the Settings capture finds the Settings window.
+            main?.orderOut(nil)
             if only?.contains("menu") ?? true {
                 let window = menuWindow(model: model)
                 for mode in ["light", "dark"] {
