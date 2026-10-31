@@ -26,11 +26,10 @@ struct AppearanceSettings: View {
     }
 }
 
-/// A small sample window in the chosen accent: a sidebar, two tasks, a tag,
+/// A small sample window in the chosen accent: a sidebar, two lights, a tag,
 /// a button, and a switch. It redraws as people pick a color.
-/// Swap the sample words for ones from this app.
 private struct AccentPreview: View {
-    private let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+    private let shape = Radius.shape(Radius.md)
 
     var body: some View {
         HStack(spacing: 0) {
@@ -56,9 +55,9 @@ private struct AccentPreview: View {
             }
             .padding(.leading, Space.xs)
             .padding(.bottom, Space.sm)
-            sidebarRow("Inbox", symbol: "tray", selected: true)
-            sidebarRow("Today", symbol: "star", selected: false)
-            sidebarRow("Done", symbol: "checkmark.circle", selected: false)
+            sidebarRow("Home", symbol: "house", selected: true)
+            sidebarRow("Rooms", symbol: "sofa", selected: false)
+            sidebarRow("Sensors", symbol: "sensor", selected: false)
             Spacer(minLength: 0)
         }
         .padding(Space.sm)
@@ -67,54 +66,57 @@ private struct AccentPreview: View {
     }
 
     private func sidebarRow(_ title: String, symbol: String, selected: Bool) -> some View {
-        Label(title, systemImage: symbol)
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: symbol).frame(width: Layout.symbolColumn)
+        }
             .font(.callout)
             .foregroundStyle(selected ? Palette.onAccent : .primary)
             .padding(.horizontal, Space.sm)
             .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
             .background(selected ? Palette.accent : .clear,
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        in: Radius.shape(Radius.sm))
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: Space.sm) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Inbox").font(.headline)
+                Text("Living Room").font(.headline)
                 Spacer()
-                Text("1 left").font(.caption).foregroundStyle(Palette.accentText)
+                Text("2 on").font(.caption).foregroundStyle(Palette.accentText)
             }
-            task("Pick a color", done: true)
-            task("Ship the first build", done: false, tag: "Today")
+            light("Ceiling Light", on: true)
+            light("Floor Lamp", on: false, tag: "21 °C")
             Spacer(minLength: 0)
             // Drawn, not real controls: the preview is a picture, and real
             // controls turn gray when the window is not in front.
             HStack {
-                Label("Add Task", systemImage: "plus")
+                Label("All Off", systemImage: "power")
                     .font(.callout.weight(.medium))
                     .foregroundStyle(Palette.onAccent)
                     .padding(.horizontal, Space.md)
                     .frame(height: 24)
                     .background(Palette.accent, in: Capsule())
                 Spacer()
-                Text("Focus").font(.caption).foregroundStyle(.secondary)
+                Text("Fan").font(.caption).foregroundStyle(.secondary)
                 Capsule()
                     .fill(Palette.accent)
                     .frame(width: 28, height: 16)
                     .overlay(alignment: .trailing) {
-                        Circle().fill(.white).padding(2).shadow(color: .black.opacity(0.2), radius: 1, y: 1)
+                        Circle().fill(.white).padding(2).shadow(color: Surfaces.knobShadow, radius: 1, y: 1)
                     }
             }
         }
         .padding(Space.md)
     }
 
-    private func task(_ title: String, done: Bool, tag: String? = nil) -> some View {
+    private func light(_ title: String, on: Bool, tag: String? = nil) -> some View {
         HStack(spacing: Space.sm) {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(done ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            Image(systemName: on ? "lightbulb.fill" : "lightbulb")
+                .foregroundStyle(on ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
             Text(title)
-                .strikethrough(done)
-                .foregroundStyle(done ? .secondary : .primary)
+                .foregroundStyle(on ? .primary : .secondary)
             Spacer()
             if let tag {
                 Text(tag)
@@ -122,7 +124,7 @@ private struct AccentPreview: View {
                     .foregroundStyle(Palette.accentText)
                     .padding(.horizontal, Space.sm)
                     .padding(.vertical, 2)
-                    .background(Palette.accent.opacity(0.15), in: Capsule())
+                    .background(Surfaces.accentWash, in: Capsule())
             }
         }
         .font(.callout)
@@ -145,7 +147,7 @@ private struct AccentSwatch: View {
                         Circle().fill(theme.onAccent).frame(width: 6, height: 6) // grid: ok
                     }
                 }
-                .overlay(Circle().strokeBorder(.primary.opacity(0.15), lineWidth: 1))
+                .overlay(Circle().strokeBorder(Surfaces.hairline, lineWidth: 1))
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

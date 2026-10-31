@@ -11,6 +11,9 @@ struct Theme: Identifiable, Hashable {
         let light: UInt32
         let base: UInt32
         let deep: UInt32
+        /// Stronger shades for Increase Contrast. nil uses `deep` and `light`.
+        var contrastDeep: UInt32? = nil
+        var contrastLight: UInt32? = nil
     }
 
     let id: String
@@ -26,12 +29,24 @@ struct Theme: Identifiable, Hashable {
     var accent: Color { tint ?? .accentColor }
     /// Accent-colored text and symbols on a plain or tinted background: the
     /// deep shade in light mode, the light shade in dark mode, so both read.
-    var accentText: Color { shades.map { Color(light: $0.deep, dark: $0.light) } ?? .accentColor }
+    var accentText: Color {
+        shades.map { Color(light: $0.deep, dark: $0.light,
+                           highContrastLight: $0.contrastDeep, highContrastDark: $0.contrastLight) } ?? .accentColor
+    }
     /// Text and symbols on an accent fill.
     var onAccent: Color { darkText ? Color(hex: 0x16161C) : .white }
 
+    /// Home Assistant blue (#18BCF2). White text on it reads poorly, so text on
+    /// the fill is dark ink. The deep shade passes 4.5:1 on a light window.
+    static let homeAssistant = Theme(
+        id: "home-assistant", name: "Home Assistant",
+        shades: .init(light: 0x7DD8F8, base: 0x18BCF2, deep: 0x0674A6,
+                      contrastDeep: 0x00557F, contrastLight: 0xA6E6FC),
+        darkText: true)
+
     static let all: [Theme] = [
         Theme(id: "system", name: "System", shades: nil),
+        homeAssistant,
         Theme(id: "blue", name: "Blue", shades: .init(light: 0x7CC0FF, base: 0x0A84FF, deep: 0x0064D2)),
         Theme(id: "indigo", name: "Indigo", shades: .init(light: 0xA5ADFF, base: 0x5E6AD2, deep: 0x4650B8)),
         Theme(id: "violet", name: "Violet", shades: .init(light: 0xB9A6FF, base: 0x7B5CFF, deep: 0x6342E6)),
@@ -58,8 +73,7 @@ final class ThemeStore {
     /// The app's brand color, or nil. Like Apple's own apps, the brand shows
     /// only while the Mac's accent is Multicolor (System Settings >
     /// Appearance). Any other Mac accent wins. Example:
-    /// Theme(id: "brand", name: "Brand", shades: .init(light: 0x8EEBC4, base: 0x2BC48A, deep: 0x0F7A55), darkText: true)
-    static let brand: Theme? = nil
+    static let brand: Theme? = Theme.homeAssistant
 
     var themeID: String {
         didSet { UserDefaults.standard.set(themeID, forKey: "appearance.accent") }

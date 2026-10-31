@@ -14,7 +14,7 @@ struct MenuView: View {
                 } description: {
                     Text("Add lights, switches, and sensors from Home Assistant.")
                 }
-                .frame(maxWidth: .infinity, minHeight: 200)
+                .frame(maxWidth: .infinity, minHeight: Layout.menuEmptyHeight)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Space.sm) {
@@ -25,13 +25,13 @@ struct MenuView: View {
                     .padding(Space.sm)
                 }
                 .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: 560)
+                .frame(maxHeight: Layout.menuMaxHeight)
                 .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
             footer
         }
-        .frame(width: 320)
+        .frame(width: Layout.menuWidth)
     }
 
     private var footer: some View {
@@ -43,6 +43,9 @@ struct MenuView: View {
                 .keyboardShortcut("q")
         }
         .buttonStyle(.borderless)
+        // Borderless buttons draw their title in the tint: use the text shade,
+        // so bright accents like Home Assistant blue stay readable.
+        .tint(Palette.accentText)
         .padding(.horizontal, Space.md)
         .padding(.vertical, Space.sm)
     }
@@ -70,7 +73,7 @@ private struct ItemRow: View {
     var body: some View {
         HStack(spacing: Space.sm) {
             Image(systemName: item.symbol)
-                .frame(width: 20)
+                .frame(width: Layout.symbolColumn)
                 .foregroundStyle(.secondary)
             Text(item.displayName)
                 .lineLimit(1)
