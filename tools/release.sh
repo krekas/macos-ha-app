@@ -1,10 +1,10 @@
 #!/bin/zsh
-# Builds HAApp, zips it, and publishes it as a GitHub Release people can download.
+# Builds HAApp, packs it as a .dmg and a .zip, and publishes both as a GitHub Release people can download.
 # The app is signed ad hoc (no Apple Developer account), so macOS asks people
 # to allow it on first open; the release notes explain how.
 #
 # Usage: tools/release.sh 1.0.0            build, tag v1.0.0, push the tag, publish the release
-#        tools/release.sh 1.0.0 --dry-run  build the zip only; nothing is tagged or published
+#        tools/release.sh 1.0.0 --dry-run  build the dmg and zip only; nothing is tagged or published
 #
 # Needs: a clean git tree, a GitHub remote, and `gh auth login`.
 set -euo pipefail
@@ -37,12 +37,23 @@ ditto -c -k --sequesterRsrc --keepParent "$out/$name.app" "$zip"
 codesign --verify --deep --strict "$out/$name.app"
 echo "built $zip ($(du -h "$zip" | cut -f1))"
 
+# The disk image shows the app next to an Applications shortcut, so people drag one onto the other.
+dmg="$out/$name-$version.dmg"
+stage="$out/dmg"
+mkdir -p "$stage"
+ditto "$out/$name.app" "$stage/$name.app"
+ln -s /Applications "$stage/Applications"
+hdiutil create -quiet -volname "$name $version" -srcfolder "$stage" -fs HFS+ -format UDZO -ov "$dmg"
+rm -rf "$stage"
+hdiutil verify -quiet "$dmg"
+echo "built $dmg ($(du -h "$dmg" | cut -f1))"
+
 notes="$out/notes.md"
 cat > "$notes" <<EOF
 ## Install
 
-1. Download **$name-$version.zip** below and open it.
-2. Drag **$name.app** into your **Applications** folder.
+1. Download **$name-$version.dmg** below and open it. (Or download **$name-$version.zip**, if you prefer.)
+2. Drag **$name.app** onto the **Applications** folder.
 3. Open it. macOS says it can't check the app for malicious software, because it isn't notarized by Apple.
    Go to **System Settings > Privacy & Security**, scroll down, and click **Open Anyway** next to $name.
 
@@ -58,4 +69,4 @@ fi
 
 git tag -a "$tag" -m "$name $version"
 git push origin "$tag"
-gh release create "$tag" "$zip" --title "$name $version" --notes-file "$notes"
+gh release create "$tag" "$dmg" "$zip" --title "$name $version" --notes-file "$notes"
