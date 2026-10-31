@@ -104,6 +104,20 @@ enum SelfTest {
             login.set(!login.isOn)
             check("the self-test leaves login items alone", SMAppService.mainApp.status == before)
 
+            // Check for Updates: the version comes from the bundle, and only a newer release is offered.
+            let updater = Updater.shared
+            let bundled = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+            check("the running version comes from Info.plist", updater.current == AppVersion(bundled), bundled)
+            let newer = AppVersion("\(updater.current.parts[0] + 1).0")!
+            let reply = Data(#"{"tag_name":"v\#(newer)","html_url":"https://github.com/o/n/releases/tag/v\#(newer)"}"#.utf8)
+            if case .available(let release) = UpdateCheck.outcome(current: updater.current, status: 200, body: reply, repo: "o/n") {
+                check("a newer release is offered", release.version == newer)
+            } else {
+                check("a newer release is offered", false)
+            }
+            check("the running version isn't offered again",
+                  UpdateCheck.outcome(current: newer, status: 200, body: reply, repo: "o/n") == .upToDate(newer))
+
             print(failures == 0 ? "SELFTEST PASS \(count) checks" : "SELFTEST FAIL \(failures) of \(count) checks")
             finish(code: failures == 0 ? 0 : 1)
         }

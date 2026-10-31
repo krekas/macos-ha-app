@@ -23,5 +23,5 @@ enum Layout {
     /// The Settings sidebar.
     static let settingsSidebarWidth: CGFloat = 200
     /// The Settings window's height; a longer page scrolls.
-    static let settingsHeight: CGFloat = 400
+    static let settingsHeight: CGFloat = 560
 }

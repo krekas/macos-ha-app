@@ -22,6 +22,8 @@ if (( ! dry )); then
   [[ -z "$(git status --porcelain)" ]] || { echo "commit or set aside your changes first"; exit 1; }
   gh repo view >/dev/null 2>&1 || { echo "no GitHub repo for this folder: create one with 'gh repo create' and push first"; exit 1; }
   git rev-parse -q --verify "refs/tags/$tag" >/dev/null && { echo "tag $tag already exists"; exit 1; }
+  # The app checks this repo for updates (HAApp > Check for Updates…).
+  export APP_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 fi
 
 out="$here/.build/release-$version"

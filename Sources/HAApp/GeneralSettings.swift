@@ -82,6 +82,8 @@ struct GeneralSettings: View {
             if !shown && loginItem.isOn { loginItem.set(false) }
         }
         .onAppear { loginItem.refresh() }
+
+        UpdatesSection()
     }
 
     @ViewBuilder
@@ -163,6 +165,51 @@ struct ConnectionStatusLine: View {
             }
         default:
             EmptyView()
+        }
+    }
+}
+
+/// Settings > General > Updates: the running version, Check Now, and the daily check.
+private struct UpdatesSection: View {
+    @Bindable private var updater = Updater.shared
+
+    var body: some View {
+        Section {
+            LabeledContent {
+                Button("Check Now") { Task { await updater.check(userInitiated: true) } }
+                    .disabled(!updater.canCheck)
+            } label: {
+                Text("HAApp \(updater.current.description)")
+                status
+            }
+            Toggle(isOn: $updater.checksAutomatically) {
+                Text("Check for updates automatically")
+                Text("Once a day, HAApp asks GitHub for a newer version and tells you when there is one.")
+            }
+            .disabled(updater.repo == nil)
+        } header: {
+            Text("Updates")
+        } footer: {
+            if updater.repo == nil {
+                Text("This build doesn't know where HAApp is published. Releases made with tools/release.sh do.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        if updater.isChecking {
+            Text("Checking…")
+        } else {
+            switch updater.lastOutcome {
+            case .available(let release): Text("Version \(release.version.description) is available")
+            case .upToDate: Text("Up to date")
+            case .failed: Text("The last check didn't finish")
+            case nil: EmptyView()
+            }
         }
     }
 }

@@ -89,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Snapshot.runIfRequested(model: model)
         // Checks the saved settings, so the status is right without a click.
         if !Store.isOverridden { Task { await model.checkSaved() } }
+        // Once a day, quietly: speaks only when a newer release is on GitHub.
+        Updater.shared.startAutomaticChecks()
         // Opened from Finder, the Dock, or a script: come to the front, above other apps.
         // Opened at login: stay quietly in the menu bar.
         if !Self.startsInMenuBar { NSApp.activate() }
@@ -166,6 +168,13 @@ struct EntityCommands: Commands {
     let model: AppModel
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") {
+                Task { await Updater.shared.check(userInitiated: true) }
+            }
+            .keyboardShortcut("u", modifiers: [.command, .shift])
+            .disabled(!Updater.shared.canCheck)
+        }
         CommandGroup(after: .newItem) {
             Button("Rescan Entities") {
                 Task { await model.rescanEntities() }

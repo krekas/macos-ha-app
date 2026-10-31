@@ -9,6 +9,7 @@
 # Env:   APP_DIR=/some/dir     put HAApp.app there instead of ~/Applications
 #        APP_VERSION=1.2.0     version shown in Finder and About (default 0.1)
 #        SIGN_IDENTITY=-       sign ad hoc even when you have a certificate
+#        APP_REPO=owner/name   GitHub repo the app checks for updates (default: the origin remote)
 set -euo pipefail
 here=${0:A:h}
 name="HAApp"
@@ -35,13 +36,16 @@ if [[ -n "$stale" ]]; then
   exit 1
 fi
 
+# Where Check for Updates looks: owner/name of the GitHub repo, from the origin remote.
+repo="${APP_REPO:-$(git -C "$here" remote get-url origin 2>/dev/null | sed -nE 's#^(https://|ssh://git@|git@)github\.com[:/]([^/]+/[^/]+)$#\2#p' | sed 's/\.git$//' || true)}"
+
 app_dir="${APP_DIR:-$HOME/Applications}"
 app="$app_dir/$name.app"
 mkdir -p "$app_dir"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/$name"
-sed -e "s/__BUILD__/$(date +%Y%m%d%H%M)/" -e "s/__VERSION__/${APP_VERSION:-0.1}/" "$here/Info.plist.in" > "$app/Contents/Info.plist"
+sed -e "s/__BUILD__/$(date +%Y%m%d%H%M)/" -e "s/__VERSION__/${APP_VERSION:-0.1}/" -e "s#__REPO__#${repo}#" "$here/Info.plist.in" > "$app/Contents/Info.plist"
 # The icon: Icon/AppIcon.icon -> Resources/Assets.car + AppIcon.icns, rebuilt when it changed.
 if [[ -d "$here/Icon/AppIcon.icon" ]]; then
   car="$here/Resources/Assets.car"
