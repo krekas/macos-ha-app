@@ -215,7 +215,7 @@ enum SelfTest {
         // Events cannot substitute for the matching pong.
         stalled.push(.changed(entityID: initial.entityID, initial))
         stalled.push(.pong(id: -1))
-        await waitUntil { stalled.cancelled }
+        await waitUntil { stalled.cancelled && !recovering.isLive }
         check("a missing heartbeat closes a stalled connection", stalled.cancelled && !recovering.isLive)
         await waitUntil { connections >= 2 }
         replacement.push(.authOK)
