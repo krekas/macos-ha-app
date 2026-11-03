@@ -31,6 +31,13 @@ private func message(_ json: String) -> LiveMessage? {
     #expect(message("not json") == nil)
 }
 
+@Test func heartbeatUsesMatchingCommandIDs() {
+    #expect(LiveRequest.ping(id: 12)["type"] as? String == "ping")
+    #expect(LiveRequest.ping(id: 12)["id"] as? Int == 12)
+    #expect(message(#"{"id":12,"type":"pong"}"#) == .pong(id: 12))
+    #expect(message(#"{"type":"pong"}"#) == .other)
+}
+
 @Test func parsesStates() {
     let json = #"""
     {"id":1,"type":"result","success":true,"result":[
@@ -42,6 +49,10 @@ private func message(_ json: String) -> LiveMessage? {
         EntityState(entityID: "sensor.tv_power", state: "85", friendlyName: "TV Power", unit: "W", deviceClass: "power"),
         EntityState(entityID: "switch.tv", state: "on"),
     ]))
+}
+
+@Test func parsesEmptyStates() {
+    #expect(message(#"{"id":1,"type":"result","success":true,"result":[]}"#) == .states(id: 1, []))
 }
 
 @Test func parsesResults() {

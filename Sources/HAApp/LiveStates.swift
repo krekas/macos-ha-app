@@ -3,7 +3,8 @@ import Observation
 import HAAppKit
 
 /// Live entity states from Home Assistant over one WebSocket that stays open:
-/// `get_states`, then every `state_changed` event. Reconnects with backoff
+/// Subscribes before fetching `get_states`, then applies `state_changed`
+/// events. Reconnects with backoff
 /// (1, 2, 5, 10, then every 30 seconds) after the socket drops, for example
 /// after sleep or a network change. Items read their values from here and
 /// turn things on and off through it.
@@ -17,14 +18,26 @@ final class LiveStates {
     /// Why the last toggle of an entity failed, shown for a few seconds.
     private(set) var errors: [String: String] = [:]
 
-    private var task: Task<Void, Never>?
-    private var socket: URLSessionWebSocketTask?
-    private var nextID = 10
-    /// Toggles waiting for their answer: message id -> (entity id, state before).
-    private var pending: [Int: (entityID: String, before: EntityState?)] = [:]
+    @ObservationIgnored private var task: Task<Void, Never>?
+    @ObservationIgnored private var socket: (any LiveSocket)?
+    @ObservationIgnored private let makeSocket: (ServerURL) -> any LiveSocket
+    @ObservationIgnored private let heartbeatInterval: Duration
+    @ObservationIgnored private let responseTimeout: Duration
+    @ObservationIgnored private var awaitingPong: Int?
 
-    private static let statesID = 1
-    private static let subscribeID = 2
+    init(heartbeatInterval: Duration = .seconds(20), responseTimeout: Duration = .seconds(10),
+         makeSocket: @escaping (ServerURL) -> any LiveSocket = { HomeAssistantSocket(server: $0) }) {
+        self.makeSocket = makeSocket
+        self.heartbeatInterval = heartbeatInterval
+        self.responseTimeout = responseTimeout
+    }
+    @ObservationIgnored private var nextID = 10
+    /// Toggles waiting for their answer: message id -> (entity id, state before).
+    @ObservationIgnored private var pending: [Int: (entityID: String, before: EntityState?)] = [:]
+
+    // Home Assistant requires command IDs to increase within a connection.
+    private static let subscribeID = 1
+    private static let statesID = 2
     private static let backoff: [Double] = [1, 2, 5, 10, 30]
 
     func start(server: ServerURL, token: String) {
@@ -35,10 +48,11 @@ final class LiveStates {
     func stop() {
         task?.cancel()
         task = nil
-        socket?.cancel(with: .goingAway, reason: nil)
+        socket?.cancel()
         socket = nil
         isLive = false
         pending = [:]
+        awaitingPong = nil
     }
 
     /// Fills in states without a server, for snapshots and the self-test.
@@ -66,7 +80,7 @@ final class LiveStates {
         pending[messageID] = (entityID, before)
         Task {
             do {
-                try await Self.send(socket, LiveRequest.toggle(id: messageID, entityID: id))
+                try await socket.send(LiveRequest.toggle(id: messageID, entityID: id))
             } catch {
                 finish(messageID, success: false, error: "Home Assistant didn't get the request.")
             }
@@ -86,7 +100,7 @@ final class LiveStates {
 
     // MARK: The socket
 
-    private enum Stop: Error { case rejected }
+    private enum Stop: Error { case rejected, setupFailed }
 
     private func run(server: ServerURL, token: String) async {
         var attempt = 0
@@ -94,12 +108,14 @@ final class LiveStates {
             do {
                 try await session(server: server, token: token) { attempt = 0 }
             } catch Stop.rejected {
+                guard !Task.isCancelled else { return }
                 isLive = false
                 return
             } catch {}
+            // A replaced connection must never mark its successor offline.
+            guard !Task.isCancelled else { return }
             isLive = false
             pending = [:]
-            guard !Task.isCancelled else { return }
             let delay = Self.backoff[min(attempt, Self.backoff.count - 1)]
             attempt += 1
             try? await Task.sleep(for: .seconds(delay))
@@ -107,48 +123,76 @@ final class LiveStates {
     }
 
     private func session(server: ServerURL, token: String, connected: () -> Void) async throws {
-        let socket = URLSession.shared.webSocketTask(with: server.websocket)
-        // A big install's get_states runs to several megabytes; the default cap is 1 MB.
-        socket.maximumMessageSize = 64 * 1024 * 1024
-        socket.resume()
+        try Task.checkCancellation()
+        let socket = makeSocket(server)
         self.socket = socket
+        awaitingPong = nil
+        let heartbeat = Task { await monitor(socket) }
         defer {
-            socket.cancel(with: .goingAway, reason: nil)
+            heartbeat.cancel()
+            socket.cancel()
             if self.socket === socket { self.socket = nil }
         }
         while !Task.isCancelled {
-            let data: Data
-            switch try await socket.receive() {
-            case .string(let text): data = Data(text.utf8)
-            case .data(let bytes): data = bytes
-            @unknown default: continue
-            }
-            // A big get_states answer takes a moment to read: off the main thread.
-            let message = await Task.detached { LiveMessage.parse(data) }.value
+            let message = try await socket.receive()
+            try Task.checkCancellation()
             switch message {
             case .authRequired:
-                try await Self.send(socket, LiveRequest.auth(token: token))
+                try await socket.send(LiveRequest.auth(token: token))
             case .authOK:
-                try await Self.send(socket, LiveRequest.getStates(id: Self.statesID))
-                try await Self.send(socket, LiveRequest.subscribeStateChanges(id: Self.subscribeID))
+                try await socket.send(LiveRequest.subscribeStateChanges(id: Self.subscribeID))
             case .authInvalid:
                 throw Stop.rejected
-            case .states(_, let list):
+            case .states(let id, let list) where id == Self.statesID:
                 states = Dictionary(list.map { ($0.entityID, $0) }, uniquingKeysWith: { _, last in last })
                 isLive = true
                 connected()
             case .changed(let entityID, let state):
                 states[entityID] = state
             case .result(let id, let success, let error):
-                finish(id, success: success, error: error)
-            case .other, nil:
+                if id == Self.subscribeID {
+                    guard success else { throw Stop.setupFailed }
+                    try await socket.send(LiveRequest.getStates(id: Self.statesID))
+                } else if id == Self.statesID {
+                    throw Stop.setupFailed
+                } else {
+                    finish(id, success: success, error: error)
+                }
+            case .pong(let id):
+                if awaitingPong == id { awaitingPong = nil }
+            case .other, .states, nil:
                 break
             }
         }
     }
 
-    private static func send(_ socket: URLSessionWebSocketTask, _ object: [String: Any]) async throws {
-        let data = try JSONSerialization.data(withJSONObject: object)
-        try await socket.send(.string(String(decoding: data, as: UTF8.self)))
+    /// An idle but healthy server still answers ping. A stalled handshake,
+    /// snapshot, or heartbeat closes the socket so the receive loop reconnects.
+    private func monitor(_ socket: any LiveSocket) async {
+        do {
+            try await Task.sleep(for: heartbeatInterval + responseTimeout)
+            guard self.socket === socket else { return }
+            guard isLive else { socket.cancel(); return }
+            while !Task.isCancelled {
+                let id = nextID
+                nextID += 1
+                awaitingPong = id
+                // The timeout must also cover a send stalled by a dead network.
+                let sender = Task {
+                    do {
+                        try await socket.send(LiveRequest.ping(id: id))
+                    } catch {
+                        if !Task.isCancelled, self.socket === socket { socket.cancel() }
+                    }
+                }
+                defer { sender.cancel() }
+                try await Task.sleep(for: responseTimeout)
+                guard self.socket === socket else { return }
+                guard awaitingPong == nil else { socket.cancel(); return }
+                try await Task.sleep(for: heartbeatInterval)
+            }
+        } catch {
+            if !Task.isCancelled, self.socket === socket { socket.cancel() }
+        }
     }
 }

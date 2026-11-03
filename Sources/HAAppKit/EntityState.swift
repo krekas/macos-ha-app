@@ -75,6 +75,7 @@ public enum LiveMessage: Equatable, Sendable {
     case authRequired
     case authOK
     case authInvalid
+    case pong(id: Int)
     /// The answer to `get_states`: every entity's state.
     case states(id: Int, [EntityState])
     /// A `state_changed` event. A nil state means the entity was removed.
@@ -90,10 +91,13 @@ public enum LiveMessage: Equatable, Sendable {
         case "auth_required": return .authRequired
         case "auth_ok": return .authOK
         case "auth_invalid": return .authInvalid
+        case "pong":
+            guard let id = json["id"] as? Int else { return .other }
+            return .pong(id: id)
         case "result":
             guard let id = json["id"] as? Int else { return .other }
             let success = json["success"] as? Bool ?? false
-            if success, let list = json["result"] as? [[String: Any]], list.first?["entity_id"] != nil {
+            if success, let list = json["result"] as? [[String: Any]], list.isEmpty || list.first?["entity_id"] != nil {
                 return .states(id: id, list.compactMap(EntityState.init(json:)))
             }
             let error = (json["error"] as? [String: Any])?["message"] as? String
@@ -113,6 +117,10 @@ public enum LiveMessage: Equatable, Sendable {
 
 /// Messages HAApp sends over the live WebSocket.
 public enum LiveRequest {
+    public static func ping(id: Int) -> [String: Any] {
+        ["id": id, "type": "ping"]
+    }
+
     public static func auth(token: String) -> [String: Any] {
         ["type": "auth", "access_token": token]
     }

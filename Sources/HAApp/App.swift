@@ -72,6 +72,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let closing = note.object as? NSWindow
             MainActor.assumeIsolated { AppDelegate.updateDockIcon(closing: closing) }
         }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification,
+                                                          object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard !Store.isOverridden else { return }
+                self?.model.startLive()
+            }
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

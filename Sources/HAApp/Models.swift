@@ -144,7 +144,7 @@ final class AppModel {
         live.stop()
     }
 
-    private func startLive() {
+    func startLive() {
         if connection.isConnected, let server = connection.server {
             live.start(server: server, token: connection.tokenText)
         } else {

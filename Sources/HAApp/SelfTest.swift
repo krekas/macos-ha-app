@@ -130,6 +130,7 @@ enum SelfTest {
             live.toggle("sensor.tv_plug_power")
             check("a sensor can't be toggled", live.states["sensor.tv_plug_power"]?.state == "85.2")
             live.stop()
+            await checkLiveFeed()
 
             // S-030: Open at login shows the real registration, and tests never change it.
             let login = LoginItem.shared
@@ -164,11 +165,142 @@ enum SelfTest {
         print(ok ? "PASS \(name)" : "FAIL \(name)\(detail.isEmpty ? "" : ": \(detail)")")
     }
 
+    private static func checkLiveFeed() async {
+        let server = ServerURL("http://127.0.0.1:8123")!
+        let socket = ScriptedLiveSocket()
+        let live = LiveStates(makeSocket: { _ in socket })
+        defer { live.stop() }
+        live.start(server: server, token: "test")
+        socket.push(.authOK)
+        await waitUntil { !socket.sent.isEmpty }
+        check("live feed subscribes before requesting initial values",
+              socket.sent.first?["type"] as? String == "subscribe_events"
+              && !socket.sent.contains { $0["type"] as? String == "get_states" })
+        socket.push(.result(id: 1, success: true, error: nil))
+        await waitUntil { socket.sent.contains { $0["type"] as? String == "get_states" } }
+        let initial = EntityState(entityID: "sensor.power", state: "10")
+        socket.push(.states(id: 2, [initial]))
+        await waitUntil { live.isLive }
+        socket.push(.changed(entityID: initial.entityID, EntityState(entityID: initial.entityID, state: "20")))
+        await waitUntil { live.states[initial.entityID]?.state == "20" }
+        check("live events replace the initial value", live.states[initial.entityID]?.state == "20")
+        live.stop()
+        await waitUntil { socket.cancelled }
+
+        let rejected = ScriptedLiveSocket()
+        let failed = LiveStates(makeSocket: { _ in rejected })
+        defer { failed.stop() }
+        failed.start(server: server, token: "test")
+        rejected.push(.authOK)
+        rejected.push(.result(id: 1, success: false, error: "Subscription failed"))
+        await waitUntil { rejected.cancelled }
+        check("a rejected subscription closes the connection for retry", rejected.cancelled && !failed.isLive)
+
+        let stalled = ScriptedLiveSocket()
+        let replacement = ScriptedLiveSocket()
+        var connections = 0
+        let recovering = LiveStates(heartbeatInterval: .milliseconds(20), responseTimeout: .milliseconds(40)) { _ in
+            connections += 1
+            return connections == 1 ? stalled : replacement
+        }
+        defer { recovering.stop() }
+        recovering.start(server: server, token: "test")
+        stalled.push(.authOK)
+        stalled.push(.result(id: 1, success: true, error: nil))
+        stalled.push(.states(id: 2, [initial]))
+        await waitUntil { stalled.sent.contains { $0["type"] as? String == "ping" } }
+        if let ping = stalled.sent.last?["id"] as? Int { stalled.push(.pong(id: ping)) }
+        await waitUntil { stalled.sent.filter { $0["type"] as? String == "ping" }.count >= 2 }
+        check("an idle connection stays live when heartbeat replies arrive", recovering.isLive && !stalled.cancelled)
+        // Events cannot substitute for the matching pong.
+        stalled.push(.changed(entityID: initial.entityID, initial))
+        stalled.push(.pong(id: -1))
+        await waitUntil { stalled.cancelled }
+        check("a missing heartbeat closes a stalled connection", stalled.cancelled && !recovering.isLive)
+        await waitUntil { connections >= 2 }
+        replacement.push(.authOK)
+        replacement.push(.result(id: 1, success: true, error: nil))
+        replacement.push(.states(id: 2, [EntityState(entityID: initial.entityID, state: "30")]))
+        await waitUntil { recovering.states[initial.entityID]?.state == "30" }
+        check("reconnecting fetches fresh values", connections >= 2 && recovering.isLive
+              && recovering.states[initial.entityID]?.state == "30")
+        recovering.stop()
+
+        let silent = ScriptedLiveSocket()
+        let starting = LiveStates(heartbeatInterval: .milliseconds(20), responseTimeout: .milliseconds(40)) { _ in silent }
+        defer { starting.stop() }
+        starting.start(server: server, token: "test")
+        await waitUntil { silent.cancelled }
+        check("a silent handshake times out", silent.cancelled && !starting.isLive)
+
+        let obsolete = ScriptedLiveSocket(finishesOnCancel: false)
+        let current = ScriptedLiveSocket()
+        var starts = 0
+        let restarting = LiveStates { _ in
+            starts += 1
+            return starts == 1 ? obsolete : current
+        }
+        defer { restarting.stop() }
+        restarting.start(server: server, token: "test")
+        obsolete.push(.authOK)
+        await waitUntil { !obsolete.sent.isEmpty }
+        restarting.start(server: server, token: "test")
+        current.push(.authOK)
+        current.push(.result(id: 1, success: true, error: nil))
+        current.push(.states(id: 2, [initial]))
+        await waitUntil { restarting.isLive }
+        obsolete.push(.states(id: 2, [EntityState(entityID: initial.entityID, state: "obsolete")]))
+        // Let the cancelled receive resume after its replacement is live.
+        await Task.yield()
+        await Task.yield()
+        check("a replaced socket cannot overwrite values or mark the new feed offline",
+              restarting.isLive && restarting.states[initial.entityID] == initial)
+    }
+
+    private static func waitUntil(_ condition: () -> Bool) async {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !condition(), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
     /// Quits through NSApp.terminate, never exit(), and closes sheets first:
     /// an open sheet refuses terminate, and the run would wait forever.
     static func finish(code: Int32) {
         exitCode = code
         for window in NSApp.windows { if let sheet = window.attachedSheet { window.endSheet(sheet) } }
         NSApp.terminate(nil)
+    }
+}
+
+/// Exercises the actual feed loop without a server or the user's credentials.
+private final class ScriptedLiveSocket: LiveSocket {
+    private var messages: [LiveMessage] = []
+    private var waiting: CheckedContinuation<LiveMessage?, Error>?
+    private(set) var sent: [[String: Any]] = []
+    private(set) var cancelled = false
+    private let finishesOnCancel: Bool
+
+    init(finishesOnCancel: Bool = true) { self.finishesOnCancel = finishesOnCancel }
+
+    func push(_ message: LiveMessage) {
+        if let waiting {
+            self.waiting = nil
+            waiting.resume(returning: message)
+        } else {
+            messages.append(message)
+        }
+    }
+    func send(_ object: [String: Any]) async throws { sent.append(object) }
+    func receive() async throws -> LiveMessage? {
+        if cancelled { throw CancellationError() }
+        if !messages.isEmpty { return messages.removeFirst() }
+        return try await withCheckedThrowingContinuation { waiting = $0 }
+    }
+    func cancel() {
+        cancelled = true
+        guard finishesOnCancel else { return }
+        waiting?.resume(throwing: CancellationError())
+        waiting = nil
     }
 }
